@@ -180,6 +180,7 @@ bool lzss_compress_file_to_stream(const std::string& inputFilePath, std::ostream
 
     Encode();
 
+
     inFile.close();
     outStream = nullptr;
 

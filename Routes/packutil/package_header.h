@@ -10,7 +10,7 @@
 // 패키지 헤더 구조체
 struct PackageHeader {
     uint32_t signature = 0x5041434B;    // "KCAP" (0x5041434B)
-    uint32_t reserved = 0x00000009;     // 예약값 (0x00000009)
+    //uint32_t reserved = 0x00000009;     // 예약값 (0x00000009)
 };
 
 // 파일 헤더 구조체 (총 0x24 = 36바이트)

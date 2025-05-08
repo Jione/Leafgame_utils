@@ -1,5 +1,30 @@
 #include "scripts_struct.h"
-// 캐릭터 이름 매칭 테이블 (한글)
+// 캐릭터 이름 매칭 테이블 (Routes)
+const CharactorInfo g_charactorList[] = {
+    { "",                0 }, // 기본값
+    { "리사=빅센",       1 },
+    { "유아사 사츠키",   2 },
+    { "후시미 유카리",   3 },
+    { "타츠타 나나미",   4 },
+    { "카지와라 유우나", 5 },
+    { "사쿠야",          7 },
+    { "에디",            11 },
+    { "타카무라",        12 },
+    { "다이고 고로",     13 },
+    { "나가세 겐지로",   14 },
+    { "타카이 스즈미",   15 },
+    { "이토 마사요시",   16 },
+    { "후쿠하라 쇼조",   17 },
+    { "나스 다이하치로", 18 },
+    { "나스 코지로",     19 },
+    { "검은 실루엣",     20 },
+    { "남자 아이1",      21 },
+    { "여자 아이",       22 },
+    { "남자 아이2",      23 },
+    { "",                -1 }, // 끝 표시용
+};
+/*
+// 캐릭터 이름 매칭 테이블 (키즈아토)
 const CharactorInfo g_charactorList[] = {
     { "",           0 }, // 기본값
     { "치즈루",     1 },
@@ -18,28 +43,6 @@ const CharactorInfo g_charactorList[] = {
     { "그외 남성", 50 },
     { "그외 여성2",59 },
     { "그외 남성2",60 },
-    { "",          -1 }, // 끝 표시용
-};
-/*
-// 캐릭터 이름 매칭 테이블 (영문)
-const CharactorInfo g_charactorList[] = {
-    { "",           0 }, // 기본값
-    { "Chizuru",     1 },
-    { "Azusa",     2 },
-    { "Kaede",     3 },
-    { "Hatsune",     4 },
-    { "Hiyoshi",     5 },
-    { "Yumiko",     6 },
-    { "Kyoko",       7 },
-    { "Yanagawa",   8 },
-    { "Nagase",     9 },
-    { "Takayuki",  10 },
-    { "Ritka",      16 },
-    { "Fuka",      17 },
-    { "Women", 49 },
-    { "Men", 50 },
-    { "Women2",59 },
-    { "Men2",60 },
     { "",          -1 }, // 끝 표시용
 };
 */
@@ -175,26 +178,26 @@ const OperatorInfo g_operatorList[] = {
 
     { "SE",                   ScriptOperator::SE },
     { "SEP",                  ScriptOperator::SEP },
-    { "SE2",                  ScriptOperator::SE2 },  // 키즈아토 추가 명령
-    { "SEP2",                 ScriptOperator::SEP2 }, // 키즈아토 추가 명령
+    //{ "SE2",                  ScriptOperator::SE2 },
+    //{ "SEP2",                 ScriptOperator::SEP2 },
     { "SES",                  ScriptOperator::SES },
     { "SEW",                  ScriptOperator::SEW },
     { "SEV",                  ScriptOperator::SEV },
     { "SEVW",                 ScriptOperator::SEVW },
 
-    { "SetVolumeVoiceChar",   ScriptOperator::SetVolumeVoiceChar },
-    { "SetVolumeVoiceScript", ScriptOperator::SetVolumeVoiceScript },
-    { "SV",                   ScriptOperator::SV },
-    { "SVEX",                 ScriptOperator::SVEX },
+    //{ "SetVolumeVoiceChar",   ScriptOperator::SetVolumeVoiceChar },
+    //{ "SetVolumeVoiceScript", ScriptOperator::SetVolumeVoiceScript },
+    //{ "SV",                   ScriptOperator::SV },
+    //{ "SVEX",                 ScriptOperator::SVEX },
 
-    { "VV",                   ScriptOperator::VV },
-    { "VA",                   ScriptOperator::VA },
-    { "VB",                   ScriptOperator::VB },
-    { "VC",                   ScriptOperator::VC },
-    { "VX",                   ScriptOperator::VX },
-    { "VW",                   ScriptOperator::VW },
-    { "VS",                   ScriptOperator::VS },
-    { "VI",                   ScriptOperator::VI },
+    //{ "VV",                   ScriptOperator::VV },
+    //{ "VA",                   ScriptOperator::VA },
+    //{ "VB",                   ScriptOperator::VB },
+    //{ "VC",                   ScriptOperator::VC },
+    //{ "VX",                   ScriptOperator::VX },
+    //{ "VW",                   ScriptOperator::VW },
+    //{ "VS",                   ScriptOperator::VS },
+    //{ "VI",                   ScriptOperator::VI },
 
     { "R",                    ScriptOperator::R },
     { "RC",                   ScriptOperator::RC },
@@ -216,9 +219,9 @@ const OperatorInfo g_operatorList[] = {
     { "GameEnd",              ScriptOperator::GameEnd },
     { "CallFunc",             ScriptOperator::CallFunc },
 
-    { "ViewClock",            ScriptOperator::ViewClock },
+    //{ "ViewClock",            ScriptOperator::ViewClock },
 
-    { "SetWeatherMode",       ScriptOperator::SetWeatherMode },
+    //{ "SetWeatherMode",       ScriptOperator::SetWeatherMode },
 
     { "SetTimeMode",          ScriptOperator::SetTimeMode },
     { "SetTimeBack",          ScriptOperator::SetTimeBack },
@@ -319,8 +322,8 @@ const OperatorInfo g_operatorList[] = {
     { "StopSeEx",             ScriptOperator::StopSeEx },
     { "SetVolumeSe",          ScriptOperator::SetVolumeSe },
 
-    { "SetMoveEffect",        ScriptOperator::SetMoveEffect },   // 키즈아토 추가 명령
-    { "ResetMoveEffect",      ScriptOperator::ResetMoveEffect }, // 키즈아토 추가 명령
+    //{ "SetMoveEffect",        ScriptOperator::SetMoveEffect },
+    //{ "ResetMoveEffect",      ScriptOperator::ResetMoveEffect },
 
     { "SetWeather",           ScriptOperator::SetWeather },
     { "ChangeWeather",        ScriptOperator::ChangeWeather },
@@ -329,13 +332,13 @@ const OperatorInfo g_operatorList[] = {
     { "SetWavEffect",         ScriptOperator::SetWavEffect },
     { "ResetWavEffect",       ScriptOperator::ResetWavEffect },
 
-    { "SetWarp",              ScriptOperator::SetWarp },
-    { "ResetWarp",            ScriptOperator::ResetWarp },
+    //{ "SetWarp",              ScriptOperator::SetWarp },
+    //{ "ResetWarp",            ScriptOperator::ResetWarp },
 
     { "WaitFrame",            ScriptOperator::WaitFrame },
 
     { "SetBmp",               ScriptOperator::SetBmp },
-    { "SetBmpEx",             ScriptOperator::SetBmpEx },
+    //{ "SetBmpEx",             ScriptOperator::SetBmpEx },
     { "SetBmp4Bmp",           ScriptOperator::SetBmp4Bmp },
     { "SetBmpPrim",           ScriptOperator::SetBmpPrim },
     { "ResetBmp",             ScriptOperator::ResetBmp },
@@ -345,7 +348,7 @@ const OperatorInfo g_operatorList[] = {
     { "WaitBmpAnime",         ScriptOperator::WaitBmpAnime },
     { "SetTitle",             ScriptOperator::SetTitle },
     { "SetEnding",            ScriptOperator::SetEnding },
-    { "SetOpening",           ScriptOperator::SetOpening },
+    //{ "SetOpening",           ScriptOperator::SetOpening },
 
     { "SetAvi",               ScriptOperator::SetAvi },
     { "ResetAvi",             ScriptOperator::ResetAvi },
@@ -387,9 +390,9 @@ const OperatorInfo g_operatorList[] = {
     { "SetDemoFadeFlag",      ScriptOperator::SetDemoFadeFlag },
 
     { "Mov2",                 ScriptOperator::Mov2 },
-    { "Sin",                  ScriptOperator::Sin },
-    { "Cos",                  ScriptOperator::Cos },
-    { "Abs",                  ScriptOperator::Abs },
+    //{ "Sin",                  ScriptOperator::Sin },
+    //{ "Cos",                  ScriptOperator::Cos },
+    //{ "Abs",                  ScriptOperator::Abs },
 
     { "SetCutCut",            ScriptOperator::SetCutCut },
 
@@ -407,27 +410,27 @@ const OperatorInfo g_operatorList[] = {
     { "VT",                   ScriptOperator::VT },
     { "HT",                   ScriptOperator::HT },
 
-    { "SetMapEvent",          ScriptOperator::SetMapEvent },
-    { "VIB",                  ScriptOperator::VIB },
+    //{ "SetMapEvent",          ScriptOperator::SetMapEvent },
+    //{ "VIB",                  ScriptOperator::VIB },
 
-    { "ViewCalender",         ScriptOperator::ViewCalender },
+    //{ "ViewCalender",         ScriptOperator::ViewCalender },
 
-    { "SetSakura",            ScriptOperator::SetSakura },
-    { "StopSakura",           ScriptOperator::StopSakura },
+    //{ "SetSakura",            ScriptOperator::SetSakura },
+    //{ "StopSakura",           ScriptOperator::StopSakura },
 
-    { "SkipDate",             ScriptOperator::SkipDate },
+    //{ "SkipDate",             ScriptOperator::SkipDate },
 
     { "SetMovie",             ScriptOperator::SetMovie },
-    { "DebugBox",             ScriptOperator::DebugBox },
+    //{ "DebugBox",             ScriptOperator::DebugBox },
 
-    { "VHFlag",               ScriptOperator::VHFlag },
+    //{ "VHFlag",               ScriptOperator::VHFlag },
 
-    { "GetSystemTime",        ScriptOperator::GetSystemTime },
+    //{ "GetSystemTime",        ScriptOperator::GetSystemTime },
 
-    { "SetName",              ScriptOperator::SetName },    // 키즈아토 추가 명령
-    { "SetMes",               ScriptOperator::SetMes },     // 키즈아토 추가 명령
-    { "WN",                   ScriptOperator::WN },         // 키즈아토 추가 명령
-    { "WNS",                  ScriptOperator::WNS },        // 키즈아토 추가 명령
+    //{ "SetName",              ScriptOperator::SetName },    // 키즈아토 추가 명령
+    //{ "SetMes",               ScriptOperator::SetMes },     // 키즈아토 추가 명령
+    //{ "WN",                   ScriptOperator::WN },         // 키즈아토 추가 명령
+    //{ "WNS",                  ScriptOperator::WNS },        // 키즈아토 추가 명령
 
     { "",                     ScriptOperator::OpMax },      // 끝 표시용
 };
@@ -532,13 +535,13 @@ const ScriptOperatorFormat g_operatorFormats[] = {
     // 이벤트 제어 오퍼레이터 (0x40부터 시작)
     { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 7 },                                    // B
     { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 7 },                                    // BT
-    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 7 },                                    // BC
-    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 7 },                                    // BCT
+    { { NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 6 },                                         // BC
+    { { NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 6 },                                         // BCT
     { { NOT }, 0 },                                                                       // BD
     { { NUM, NUM, NUM, NUM, NOT }, 4 },                                                   // BR
     { { NUM, NUM, NUM, NUM, NUM, NOT }, 5 },                                              // BF
-    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 8 },                               // V
-    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 8 },                               // H
+    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 7 },                                    // V
+    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 7 },                                    // H
 
     { { NUM, NUM, NUM, NUM, NOT }, 4 },                                                   // S
     { { NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 6 },                                         // Z
@@ -555,14 +558,14 @@ const ScriptOperatorFormat g_operatorFormats[] = {
     { { NUM, NUM, NUM, NUM, NOT }, 4 },                                                   // Q
     { { NUM, NUM, NUM, NUM, NUM, NOT }, 5 },                                              // F
 
-    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 10 },                    // C, 기존 8배열, 키즈아토 10배열
+    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 8 },                               // C
     { { NUM, NUM, NUM, NOT }, 3 },                                                        // CR
     { { NUM, NUM, NUM, NOT }, 3 },                                                        // CP
     { { NUM, NUM, NUM, NOT }, 3 },                                                        // CL
     { { NUM, NUM, NOT }, 2 },                                                             // CY
     { { NUM, NUM, NUM, NOT }, 3 },                                                        // CB
     { { NUM, NUM, NUM, NOT }, 3 },                                                        // CA
-    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 8 },                               // CW, 기존 6배열, 키즈아토 8배열
+    { { NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 6 },                                         // CW
     { { NUM, NUM, NOT }, 2 },                                                             // CRW
 
     { { NUM, NOT }, 1 },                                                                  // W
@@ -579,28 +582,28 @@ const ScriptOperatorFormat g_operatorFormats[] = {
 
     { { NUM, NUM, NOT }, 2 },                                                             // SE
     { { NUM, NUM, NUM, NUM, NUM, NOT }, 5 },                                              // SEP
-    { { NUM, NUM, NOT }, 2 },                                                             // SE2
-    { { NUM, NUM, NUM, NUM, NUM, NOT }, 5 },                                              // SEP2
+    //{ { NUM, NUM, NOT }, 2 },                                                             // SE2
+    //{ { NUM, NUM, NUM, NUM, NUM, NOT }, 5 },                                              // SEP2
     { { NUM, NUM, NOT }, 2 },                                                             // SES
     { { NUM, NOT }, 1 },                                                                  // SEW
     { { NUM, NUM, NUM, NOT }, 3 },                                                        // SEV
     { { NUM, NOT }, 1 },                                                                  // SEVW
 
-    { { NUM, NUM, NOT }, 2 },                                                             // SetVolumeVoiceChar
-    { { NUM, NOT }, 1 },                                                                  // SetVolumeVoiceScript
+    //{ { NUM, NUM, NOT }, 2 },                                                             // SetVolumeVoiceChar
+    //{ { NUM, NOT }, 1 },                                                                  // SetVolumeVoiceScript
 
-    { { NUM, NUM, NUM, VCNT, NUM, NOT }, 5 },                                             // SV
-    { { NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 6 },                                         // SVEX
+    //{ { NUM, NUM, NUM, VCNT, NUM, NOT }, 5 },                                             // SV
+    //{ { NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 6 },                                         // SVEX
 
-    { { NUM, NUM, NUM, VCNT, NUM, NOT }, 5 },                                             // VV
-    { { NUM, NUM, NUM, VCNT, NUM, NOT }, 5 },                                             // VA
-    { { NUM, NUM, NUM, VCNT, NUM, NOT }, 5 },                                             // VB
-    { { NUM, NUM, NUM, VCNT, NUM, NOT }, 5 },                                             // VC
+    //{ { NUM, NUM, NUM, VCNT, NUM, NOT }, 5 },                                             // VV
+    //{ { NUM, NUM, NUM, VCNT, NUM, NOT }, 5 },                                             // VA
+    //{ { NUM, NUM, NUM, VCNT, NUM, NOT }, 5 },                                             // VB
+    //{ { NUM, NUM, NUM, VCNT, NUM, NOT }, 5 },                                             // VC
 
-    { { NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 6 },                                         // VX
-    { { NUM, NOT }, 1 },                                                                  // VW
-    { { NUM, NUM, NOT }, 2 },                                                             // VS
-    { { VCNT, NUM, NUM, NOT }, 3 },                                                       // VI
+    //{ { NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 6 },                                         // VX
+    //{ { NUM, NOT }, 1 },                                                                  // VW
+    //{ { NUM, NUM, NOT }, 2 },                                                             // VS
+    //{ { VCNT, NUM, NUM, NOT }, 3 },                                                       // VI
 
     { { NUM, NUM, NUM, NOT }, 3 },                                                        // R
     { { NUM, NUM, NUM, NOT }, 3 },                                                        // RC
@@ -619,11 +622,11 @@ const ScriptOperatorFormat g_operatorFormats[] = {
 
     { { STR, NOT }, 1 },                                                                  // LoadScript
     { { NUM, NOT }, 1 },                                                                  // GameEnd
-    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM }, 15 },// CallFunc
+    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, }, 15},// CallFunc
 
-    { { NUM, NUM, NUM, NOT }, 3 },                                                        // ViewClock
+    //{ { NUM, NUM, NUM, NOT }, 3 },                                                        // ViewClock
 
-    { { NUM, NOT }, 1 },                                                                  // SetWeatherMode
+    //{ { NUM, NOT }, 1 },                                                                  // SetWeatherMode
 
     { { NUM, NUM, NOT }, 2 },                                                             // SetTimeMode
     { { NUM, NUM, NOT }, 2 },                                                             // SetTimeBack
@@ -637,7 +640,7 @@ const ScriptOperatorFormat g_operatorFormats[] = {
     { { NOT }, 0 },                                                                       // PlayChipBack
 
     { { NUM, NUM, NUM, NUM, NUM, NOT }, 5 },                                              // SetChipBack
-    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 13 },     // SetChipParts
+    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 13},      // SetChipParts
     { { NUM, NUM, NUM, NUM, NOT }, 4 },                                                   // SetChipScroll
     { { NUM, NUM, NUM, NUM, NOT }, 4 },                                                   // SetChipScroll2
 
@@ -690,7 +693,7 @@ const ScriptOperatorFormat g_operatorFormats[] = {
 
 
     // 캐릭터 제어 오퍼레이터
-    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 10 },                    // SetChar, 기존 8배열, 키즈아토 10배열
+    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 8 },                               // SetChar
     { { NUM, NUM, NUM, NOT }, 3 },                                                        // ResetChar
     { { NUM, NUM, NOT }, 2 },                                                             // SetCharPose
     { { NUM, NUM, NOT }, 2 },                                                             // SetCharLocate
@@ -703,18 +706,18 @@ const ScriptOperatorFormat g_operatorFormats[] = {
     { { NUM, NOT }, 1 },                                                                  // SetWindow
     { { NUM, NOT }, 1 },                                                                  // ResetWindow
     { { NUM, STR, CNT, NOT }, 3 },                                                        // SetMessage
-    { { STR2,ADD, CNT, NOT }, 3 },                                                        // SetMessage2
+    { {STR2, ADD, CNT, NOT }, 3 },                                                        // SetMessage2
     { { NUM, NUM, STR, NUM, CNT, NOT }, 5 },                                              // SetMessageEx
     { { STR, CNT, NOT }, 2 },                                                             // SetChipMessage
 
     { { NUM, STR, NOT }, 2 },                                                             // AddMessage
-    { { STR2,ADD, NOT }, 2 },                                                             // AddMessage2
+    { {STR2, ADD, NOT }, 2 },                                                             // AddMessage2
     { { NUM, NOT }, 1 },                                                                  // SetMessageWait
     { { NOT }, 0 },                                                                       // ResetMessage
 
     { { NOT }, 0 },                                                                       // WaitKey
 
-    { { STR, NUM, NUM, NUM, NOT }, 4 },                                                   // SetSelectMes
+    { { STR, NUM, NUM, NOT }, 3 },                                                        // SetSelectMes
     { { STR, STR, NUM, NUM, NOT }, 4 },                                                   // SetSelectMesEx
     { { REG, NOT }, 1 },                                                                  // SetSelect
     { { NOT }, 0 },                                                                       // SetSelectEx
@@ -734,8 +737,8 @@ const ScriptOperatorFormat g_operatorFormats[] = {
 
 
     // 기타 오퍼레이터
-    { { NOT }, 1 },                                                                       // SetMoveEffect
-    { { NOT }, 1 },                                                                       // ResetMoveEffect
+    //{ { NOT }, 1 },                                                                       // SetMoveEffect
+    //{ { NOT }, 1 },                                                                       // ResetMoveEffect
     { { NUM, NUM, NUM, NUM, NOT }, 4 },                                                   // SetWeather
     { { NUM, NUM, NUM, NOT }, 3 },                                                        // ChangeWeather
     { { NOT }, 0 },                                                                       // ResetWeather
@@ -743,13 +746,13 @@ const ScriptOperatorFormat g_operatorFormats[] = {
     { { NUM, NUM, NUM, NOT }, 3 },                                                        // SetWavEffect
     { { NOT }, 0 },                                                                       // ResetWavEffect
 
-    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 8 },                               // SetWarp
-    { { NUM, NOT }, 1 },                                                                  // ResetWarp
+    //{ { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 8 },                               // SetWarp
+    //{ { NUM, NOT }, 1 },                                                                  // ResetWarp
 
     { { NUM, NOT }, 1 },                                                                  // WaitFrame
 
-    { { NUM, NUM, STR, NUM, NUM, STR, NUM, NUM, STR, NOT }, 9 },                          // SetBmp
-    { { NUM, NUM, STR, NUM, NUM, NUM, STR, NOT }, 7 },                                    // SetBmpEx
+    { { NUM, NUM, STR, NUM, NUM, STR, NUM, NUM, NOT }, 8 },                               // SetBmp
+    //{ { NUM, NUM, STR, NUM, NUM, NUM, STR, NOT }, 7 },                                    // SetBmpEx
     { { NUM, NUM, NUM, NUM, NOT }, 4 },                                                   // SetBmp4Bmp
     { { NUM, NUM, NUM, NUM, NOT }, 4 },                                                   // SetBmpPrim
     { { NUM, NOT }, 1 },                                                                  // ResetBmp
@@ -761,7 +764,7 @@ const ScriptOperatorFormat g_operatorFormats[] = {
     { { NOT }, 0 },                                                                       // SetTitle
     { { NUM, NUM, NOT }, 2 },                                                             // SetEnding
 
-    { { NOT }, 0 },                                                                       // SetOpening
+    //{ { NOT }, 0 },                                                                       // SetOpening
 
     { { NUM, NUM, NUM, NUM, STR, NOT }, 5 },                                              // SetAvi
     { { NOT }, 0 },                                                                       // ResetAvi
@@ -792,7 +795,7 @@ const ScriptOperatorFormat g_operatorFormats[] = {
     { { REG, NOT }, 1 },                                                                  // GetTime
     { { NUM, NOT }, 1 },                                                                  // WaitTime
 
-    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 11 },               // SetTextFormat
+    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 11},                // SetTextFormat
     { { NUM, NUM, NOT }, 2 },                                                             // SetTextSync
     { { NUM, STR, NOT }, 2 },                                                             // SetText
     { { STR, NOT }, 1 },                                                                  // SetTextEx
@@ -803,9 +806,9 @@ const ScriptOperatorFormat g_operatorFormats[] = {
     { { NUM, NOT }, 1 },                                                                  // SetDemoFadeFlag
 
     { { REG, NUM, NOT }, 2 },                                                             // Mov2
-    { { REG, NUM, NUM, NOT }, 3 },                                                        // Sin
-    { { REG, NUM, NUM, NOT }, 3 },                                                        // Cos
-    { { REG, NUM, NOT }, 2 },                                                             // Abs
+    //{ { REG, NUM, NUM, NOT }, 3 },                                                        // Sin
+    //{ { REG, NUM, NUM, NOT }, 3 },                                                        // Cos
+    //{ { REG, NUM, NOT }, 2 },                                                             // Abs
     { { NUM, NOT }, 1 },                                                                  // SetCutCut
     { { NUM, NUM, NUM, NOT }, 3 },                                                        // SetNoise
     { { NUM, NUM, NOT }, 2 },                                                             // T
@@ -816,27 +819,27 @@ const ScriptOperatorFormat g_operatorFormats[] = {
     { { NOT }, 0 },                                                                       // WaitRipple
     { { NOT }, 0 },                                                                       // SetRippleLost
     { { NOT }, 0 },                                                                       // MLW
-    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 8 },                               // VT
-    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 8 },                               // HT
+    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 7 },                                    // VT
+    { { NUM, NUM, NUM, NUM, NUM, NUM, NUM, NOT }, 7 },                                    // HT
 
-    { { NUM, NUM, NUM, STR, NOT }, 4 },                                                   // SetMapEvent
-    { { NUM, NUM, NUM, NOT }, 3 },                                                        // VIB
-    { { NUM, NUM, NOT }, 2 },                                                             // ViewCalender
+    //{ { NUM, NUM, NUM, STR, NOT }, 4 },                                                   // SetMapEvent
+    //{ { NUM, NUM, NUM, NOT }, 3 },                                                        // VIB
+    //{ { NUM, NUM, NOT }, 2 },                                                             // ViewCalender
 
-    { { NUM, NUM, NUM, NOT }, 3 },                                                        // SetSakura
-    { { NOT }, 0 },                                                                       // StopSakura
-    { { NUM, NUM, NOT }, 2 },                                                             // SkipDate
+    //{ { NUM, NUM, NUM, NOT }, 3 },                                                        // SetSakura
+    //{ { NOT }, 0 },                                                                       // StopSakura
+    //{ { NUM, NUM, NOT }, 2 },                                                             // SkipDate
 
-    { { NUM, NOT }, 1 },                                                                  // SetMovie
-    { { NUM, STR, NOT }, 2 },                                                             // DebugBox
+    { { NOT }, 0 },                                                                       // SetMovie
+    //{ { NUM, STR, NOT }, 2 },                                                             // DebugBox
 
-    { { NUM, NUM, NOT }, 2 },                                                             // VHFlag
-    { { REG, REG, REG, REG, NOT }, 4 },                                                   // GetSystemTime
+    //{ { NUM, NUM, NOT }, 2 },                                                             // VHFlag
+    //{ { REG, REG, REG, REG, NOT }, 4 },                                                   // GetSystemTime
 
-    { { STR, NOT }, 1 },                                                                  // SetName
-    { { STR, STR, NOT }, 2 },                                                             // SetMes
-    { { NUM, NOT }, 1 },                                                                  // WN
-    { { STR, NOT }, 1 },                                                                  // WNS
+    //{ { STR, NOT }, 1 },                                                                  // SetName
+    //{ { STR, STR, NOT }, 2 },                                                             // SetMes
+    //{ { NUM, NOT }, 1 },                                                                  // WN
+    //{ { STR, NOT }, 1 },                                                                  // WNS
 };
 
 ScriptOperator getOperatorCode(std::string opName) {

@@ -292,18 +292,18 @@ bool SdtParser::parseFile(const std::string& filepath) {
                 break;
             }
 
-            // 캐릭터 이름 설정 (키즈아토)
+            /* 캐릭터 이름 설정(키즈아토)
             if (parsedOp.name == "VV" && paramIndex == 0) {
                 currentCharactorName = find_charactor_name(param.intValue);
-            }
+            }*/
 
-            /* 캐릭터 이름 설정 (Routes)
+            // 캐릭터 이름 설정 (Routes)
             if (parsedOp.name == "V" && paramIndex == 1) {
                 currentCharactorName = find_charactor_name(param.intValue / 100);
             }
             if ((parsedOp.name == "C" || parsedOp.name == "SetChar" || parsedOp.name == "CWR" || parsedOp.name == "CW") && paramIndex == 0) {
                 currentCharactorName = find_charactor_name(param.intValue);
-            }*/
+            }
         }
 
         parsed.ops.push_back(parsedOp);
