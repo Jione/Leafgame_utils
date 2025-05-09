@@ -9,73 +9,76 @@
 std::string preprocess_to_utf8(const std::string& input) {
     std::ostringstream oss;
     size_t i = 0;
+    bool isLast = false;
     while (i < input.size()) {
         uint8_t ch = static_cast<uint8_t>(input[i]);
+        uint8_t next;
+        uint16_t hexVal = ch;
+        bool isWord = false;
+
+        // 다음 문자열 불러오기
+        if (++i < input.size()) {
+            next = static_cast<uint8_t>(input[i]);
+        }
+        else {
+            isLast = true;
+        }
+
+        // 문자열 크기 판단
+        if ((ch > 0x80) && !isLast) {
+            if (ch < 0xB0 || ch > 0xC8 || (next >= 0xA1 && next <= 0xFE)) {
+                ++i;
+                hexVal = (ch << 8) | next;
+                isWord = true;
+            }
+        }
+
+        // 치환 문자열 검색 및 변환
+        const std::string* rep = find_replacement_string(hexVal);
+        if (rep) {
+            oss << *rep;
+            continue;
+        }
 
         // ASCII 범위
-        if (ch <= 0x7F) {
-            if (ch == '\\' && (i + 1) < input.size() && input[i + 1] == 'n') {
+        if (!isWord && ch <= 0x7F) {
+            if (ch == '\\' && !isLast && next == 'n') {
                 // \n 발견
                 oss << "\\n";
-                if ((i + 2) < input.size()) {
-                    if (input[i + 2] == '>') {
-                        if ((i + 3) < input.size()) {
+                if (++i < input.size()) {
+                    if (input[i] == '>') {
+                        if (++i < input.size()) {
                             oss << ">\n";
                         }
                         else {
                             oss << ">";
                         }
-                        i++;
                     }
                     else {
                         oss << "\n"; // 중간에만 줄바꿈 삽입
                     }
                 }
-                i += 2;
             }
             else {
                 oss << static_cast<char>(ch);
-                ++i;
             }
         }
-        // EUC-KR 영역
-        else if (ch >= 0xB0 && ch <= 0xC8 && (i + 1) < input.size()) {
-            uint8_t next = static_cast<uint8_t>(input[i + 1]);
-            if (next >= 0xA1 && next <= 0xFE) {
-                uint16_t hexVal = (ch << 8) | next;
-                const std::string* rep = find_replacement_string(hexVal);
-                if (rep) {
-                    oss << *rep;
-                }
-                else {
-                    std::string euckr;
-                    euckr += static_cast<char>(ch);
-                    euckr += static_cast<char>(next);
-                    oss << euckr_to_utf8(euckr);
-                }
-                i += 2;
-                continue;
-            }
+        // Shift-JIS 반각 영역
+        else if (!isWord) {
+            std::string sjis;
+            sjis += static_cast<char>(ch);
+            oss << shiftjis_to_utf8(sjis);
         }
-        // Shift-JIS 영역 (반각 + 전각)
         else {
-            if ((i + 1) < input.size()) {
-                uint16_t hexVal = (ch << 8) | static_cast<uint8_t>(input[i + 1]);
-                const std::string* rep = find_replacement_string(hexVal);
-                if (rep) {
-                    oss << *rep;
-                }
-                else {
-                    std::string sjis;
-                    sjis += static_cast<char>(ch);
-                    sjis += static_cast<char>(input[i + 1]);
-                    oss << shiftjis_to_utf8(sjis);
-                }
-                i += 2;
+            std::string wordString;
+            wordString += static_cast<char>(ch);
+            wordString += static_cast<char>(next);
+
+            if (ch >= 0xB0 && ch <= 0xC8) {
+                oss << euckr_to_utf8(wordString); // EUC-KR
             }
             else {
-                oss << static_cast<char>(ch);
-                ++i;
+                oss << shiftjis_to_utf8(wordString); // Shift-JIS 전각
             }
         }
     }
@@ -101,7 +104,9 @@ std::string postprocess_from_utf8(const std::string& input) {
                 std::string sub = input.substr(i, len);
                 int hexVal = find_hexcode_from_text(sub);
                 if (hexVal >= 0) {
-                    oss.put(static_cast<char>((hexVal >> 8) & 0xFF));
+                    if (hexVal > 0xFF) {
+                        oss.put(static_cast<char>((hexVal >> 8) & 0xFF));
+                    }
                     oss.put(static_cast<char>(hexVal & 0xFF));
                     i += len;
                     replaced = true;
@@ -187,8 +192,9 @@ bool to_csv(const std::vector<CsvStringData>& data, const std::string& outputFil
     initialize_replacement_table(true);
 
     for (const auto& row : data) {
+        int i = 0;
         auto pre = [&](const std::string& text) -> std::string {
-            return preprocess_to_utf8(text);
+            return (i++ == 0) ? preprocess_to_utf8(text) : euckr_to_utf8(text);
             };
 
         oss << escape_csv_field(pre(row.filename)) << ".SDT,"

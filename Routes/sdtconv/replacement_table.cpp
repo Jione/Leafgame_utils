@@ -8,6 +8,7 @@ static const struct {
     uint16_t hexCode;
     const char* replacement; // ANSI 인코딩 문자열 리터럴 (컴파일 시 기준)
 } rawReplacementTable[] = {
+    // 여러 문자
     { 0xF040, "[!?]" },
     { 0xF041, "[!!]" },
     { 0xF042, "♥" },
@@ -16,6 +17,11 @@ static const struct {
     { 0xF045, "[;]" },
     { 0xF046, "[~~]" },
     { 0xF047, "[~~~]" },
+
+    // Ascii 단일 문자
+    { ' ',   "^" },
+    { '^',   " "},
+    { '~',   ","},
     { static_cast<uint16_t>(-1), "" } // 종료용
 };
 
@@ -26,8 +32,9 @@ static const struct {
 } rawReverseReplacementTable[] = {
     //{ 0x8148, "?" },
     //{ 0x8149, "!" },
-    //{ 0x8160, "~" },
-    { static_cast<uint16_t>(-1), "" } // 종료용
+    { 0x8160, "~" },
+    { static_cast<uint16_t>(-1), "" }, // 더미
+    { static_cast<uint16_t>(-1), "" }, // 종료용
 };
 
 static std::unordered_map<uint16_t, std::string> hexToUtf8;
