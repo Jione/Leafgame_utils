@@ -6,6 +6,8 @@
 #include <fstream>
 #include <algorithm>
 
+static int nowIndex = 0;
+
 std::string preprocess_to_utf8(const std::string& input) {
     std::ostringstream oss;
     size_t i = 0;
@@ -54,8 +56,19 @@ std::string preprocess_to_utf8(const std::string& input) {
                             oss << ">";
                         }
                     }
-                    else {
-                        oss << "\n"; // 중간에만 줄바꿈 삽입
+                    else if ((i + 1) < input.size()) {
+                        uint16_t chw = (static_cast<uint8_t>(input[i]) << 8) | static_cast<uint8_t>(input[i + 1]);
+                        if (chw == 0x8140 || chw == 0x8175 || chw == 0x8177) {
+                            oss << "\n"; // 중간에만 줄바꿈 삽입
+                        }
+                        else if (i > 3) {
+                            uint8_t ch1 = static_cast<uint8_t>(input[i - 4]);
+                            uint8_t ch2 = static_cast<uint8_t>(input[i - 3]);
+                            chw = ((ch1 << 8) | ch2);
+                            if (((ch1 == (uint8_t)'\\') && (ch2 == (uint8_t)'k')) || (chw == 0x8176) || (chw == 0x8178)) {
+                                oss << "\n"; // 중간에만 줄바꿈 삽입
+                            }
+                        }
                     }
                 }
             }
@@ -91,8 +104,8 @@ std::string postprocess_from_utf8(const std::string& input) {
     size_t i = 0;
 
     while (i < input.size()) {
-        // 줄바꿈(\n) 무시
-        if (input[i] == '\n') {
+        // 줄바꿈(\r, \n) 무시
+        if ((input[i] == '\n') || (input[i] == '\r')) {
             ++i;
             continue;
         }
@@ -158,7 +171,7 @@ std::string postprocess_from_utf8(const std::string& input) {
             std::string shiftjis = utf8_to_shiftjis(utf8char);
             oss.write(shiftjis.data(), shiftjis.size());
             if (shiftjis == "?") {
-                std::cerr << "[경고] EUC-KR 코드 변환 실패. 실패 문자: \"" << euckr << "\"\n";
+                std::cerr << "[경고] EUC-KR 코드 변환 실패. ID: " << nowIndex << ", 실패 문자 : \"" << euckr << "\"\n";
             }
             i += utf8_len;
         }
@@ -184,10 +197,37 @@ static std::string escape_csv_field(const std::string& field) {
     return escaped;
 }
 
+// \n(0x0A) 기준으로 문자열을 분리하여 std::vector<std::string> 반환
+std::vector<std::string> splitStringByNewline(const std::string& input) {
+    std::vector<std::string> result;
+    size_t start = 0;
+    while (start <= input.size()) {
+        auto pos = input.find('\n', start);
+        if (pos == std::string::npos) {
+            // 마지막 부분
+            result.emplace_back(input.substr(start));
+            break;
+        }
+        // start부터 pos-1까지 부분 문자열
+        result.emplace_back(input.substr(start, pos - start));
+        start = pos + 1;
+    }
+    return result;
+}
+
 bool to_csv(const std::vector<CsvStringData>& data, const std::string& outputFilename) {
+    std::string txtFilename = outputFilename.substr(0, outputFilename.length() - 4) + ".txt";
     std::ostringstream oss;
+    std::ostringstream tss;
     oss << "\xEF\xBB\xBF"; // UTF-8 BOM
+    tss << "\xEF\xBB\xBF"; // UTF-8 BOM
     oss << "File,ID,Charactor,Original,Translate\r\n";
+    std::string findStrA, findStrB;
+    findStrA = findStrB += static_cast<char>(0x81);
+    findStrA += static_cast<char>(0x76);
+    findStrB += static_cast<char>(0x78);
+    findStrA = shiftjis_to_utf8(findStrA);
+    findStrB = shiftjis_to_utf8(findStrB);
 
     initialize_replacement_table(true);
 
@@ -196,19 +236,37 @@ bool to_csv(const std::vector<CsvStringData>& data, const std::string& outputFil
         auto pre = [&](const std::string& text) -> std::string {
             return (i++ == 0) ? preprocess_to_utf8(text) : euckr_to_utf8(text);
             };
+        auto lines = splitStringByNewline(pre(row.original));
 
-        oss << escape_csv_field(pre(row.filename)) << ".SDT,"
-            << row.id << ','
-            << escape_csv_field(pre(row.charactor)) << ','
-            //<< escape_csv_field(pre(row.original)) << ','
-            //<< escape_csv_field(pre(row.translated)) << "\r\n";
-            << escape_csv_field(pre(row.original)) << ",\r\n";
+        // 인덱스로 순차 접근
+        bool isChar = pre(row.charactor).length() != 0;
+        for (size_t i = 0; i < lines.size(); ++i) {
+            if (isChar) {
+                oss << escape_csv_field(pre(row.filename)) << ".SDT,"
+                    << row.id << ','
+                    << escape_csv_field(pre(row.charactor)) << ','
+                    << escape_csv_field(lines[i]) << ",\r\n";
+                isChar = (isChar && !((lines[i].find(findStrA) != std::string::npos) || (lines[i].find(findStrB) != std::string::npos)));
+            }
+            else {
+                oss << escape_csv_field(pre(row.filename)) << ".SDT,"
+                    << row.id << ",,"
+                    << escape_csv_field(lines[i]) << ",\r\n";
+            }
+            tss << lines[i] << "\r\n";
+        }
     }
 
     std::ofstream out(outputFilename, std::ios::binary);
     if (!out) return false;
     out << oss.str();
     out.close();
+
+    std::ofstream txtout(txtFilename, std::ios::binary);
+    if (!txtout) return false;
+    txtout << tss.str();
+    txtout.close();
+
     return true;
 }
 
@@ -271,6 +329,10 @@ bool from_csv(const std::string& inputFilename, std::vector<CsvStringData>& outD
     std::string currentLine;
     bool insideQuote = false;
     size_t i = bomSkip;
+    int id = -1;
+    std::string idString = "";
+    bool isTrans = false;
+    bool isData = false;
 
     while (i < csvText.size()) {
         char ch = csvText[i];
@@ -296,35 +358,43 @@ bool from_csv(const std::string& inputFilename, std::vector<CsvStringData>& outD
                     continue;
                 }
 
-                if (outData.empty() && currentLine.find("File,ID,Charactor,Original,Translate") != std::string::npos) {
-                    // 첫 행은 헤더, 무시
-                    currentLine.clear();
-                    ++i;
-                    continue;
-                }
-
                 if (parse_csv_line(currentLine, fields)) {
-                    if (fields.size() >= 4) {
-                        CsvStringData row;
-                        //row.filename = fields[0];
-                        row.id = std::stoi(fields[1]);
-                        //row.charactor = fields[2];
-                        //row.original = fields[3];
-                        //row.translated = fields[4];
-                        if ((fields.size() >= 5) && (fields[4].length() > 0)) {
-                            row.translated = postprocess_from_utf8(fields[4]);
+                    if (outData.empty() && !isData) {
+                        // 첫 행은 헤더, 무시
+                        isData = true;
+                    }
+                    else if (fields.size() >= 4) {
+                        int filedId = -1;
+                        isTrans = ((fields.size() >= 5) && (fields[4].length() > 0));
+                        if (fields[1].length() != 0) {
+                            nowIndex = filedId = std::stoi(fields[1]);
+                        }
+                        if ((id != filedId) && (filedId != -1) && (id != -1)) {
+                            CsvStringData row;
+                            row.id = id;
+                            row.translated = idString;
+                            outData.push_back(row);
+                            id = filedId;
+                            idString = postprocess_from_utf8(fields[(isTrans ? 4 : 3)]);
                         }
                         else {
-                            row.translated = postprocess_from_utf8(fields[3]);
+                            if (filedId != -1) {
+                                id = filedId;
+                            }
+                            idString += postprocess_from_utf8(fields[(isTrans ? 4 : 3)]);
                         }
-                        outData.push_back(row);
                     }
                 }
-
                 currentLine.clear();
             }
         }
         ++i;
+    }
+    if (id != -1) {
+        CsvStringData row;
+        row.id = id;
+        row.translated = idString;
+        outData.push_back(row);
     }
     in.close();
     return true;
