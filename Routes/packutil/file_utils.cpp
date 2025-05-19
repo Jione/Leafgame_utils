@@ -1,4 +1,5 @@
 #include "file_utils.h"
+#include "string_util.h"
 #include <windows.h>
 #include <fstream>
 #include <set>
@@ -15,44 +16,51 @@ std::string get_output_filename(const std::string& folderPath) {
     return base + ".pak";
 }
 
-static void find_files_recursive(const std::string& basePath, const std::string& rootPath,
-    std::vector<FileEntry>& files, std::set<std::string>& uniqueNames) {
-    std::string searchPath = basePath + "\\*";
-    WIN32_FIND_DATAA findData;
-    HANDLE hFind = FindFirstFileA(searchPath.c_str(), &findData);
+// 실제 재귀 탐색 (UTF-16 API 사용)
+static void find_files_recursive(
+    const std::wstring& basePath,
+    const std::wstring& rootPath,
+    std::vector<FileEntry>& files,
+    std::set<std::string>& uniqueNames)
+{
+    std::wstring searchPath = basePath + L"\\*";
+    WIN32_FIND_DATAW findData;
+    HANDLE hFind = FindFirstFileW(searchPath.c_str(), &findData);
     if (hFind == INVALID_HANDLE_VALUE) return;
 
     do {
-        std::string name = findData.cFileName;
-        if (name == "." || name == "..") continue;
+        std::wstring nameW = findData.cFileName;
+        if (nameW == L"." || nameW == L"..") continue;
 
-        std::string fullPath = basePath + "\\" + name;
-        std::string relative = fullPath.substr(rootPath.length() + 1); // ex: sub\abc.txt
+        std::wstring fullPathW = basePath + L"\\" + nameW;
+        std::wstring relativeW = fullPathW.substr(rootPath.length() + 1);
 
         if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-            find_files_recursive(fullPath, rootPath, files, uniqueNames);
+            find_files_recursive(fullPathW, rootPath, files, uniqueNames);
         }
         else {
-            std::ifstream test(fullPath, std::ios::binary);
+            std::wifstream test(fullPathW, std::ios::binary);
             if (!test) {
-                std::cerr << "[Error] Cannot open file for reading: " << relative << "\n";
+                std::cerr << "[Error] Cannot open file: "
+                    << wstringToString(relativeW) << "\n";
                 exit(1);
             }
             test.close();
 
-            std::string fileOnly;
-            size_t pos = name.find_last_of("\\/");
-            fileOnly = (pos == std::string::npos) ? name : name.substr(pos + 1);
+            // 멀티바이트로 변환
+            std::string fileOnly = wstringToString(nameW);
+            std::string relative = wstringToString(relativeW);
 
             if (uniqueNames.find(fileOnly) != uniqueNames.end()) {
-                std::cerr << "[Warning] Duplicate filename ignored: " << relative << "\n";
+                std::cerr << "[Warning] Duplicate filename ignored: "
+                    << relative << "\n";
                 continue;
             }
 
             uniqueNames.insert(fileOnly);
-            files.push_back({ relative, fileOnly });
+            files.push_back({ relativeW, nameW });
         }
-    } while (FindNextFileA(hFind, &findData));
+    } while (FindNextFileW(hFind, &findData));
 
     FindClose(hFind);
 }
@@ -61,7 +69,7 @@ std::vector<FileEntry> list_all_files(const std::string& folderPath) {
     std::vector<FileEntry> files;
     std::set<std::string> uniqueNames;
 
-    std::string cleanedPath = folderPath;
+    std::wstring cleanedPath = stringToWstring(folderPath);
     if (!cleanedPath.empty() && cleanedPath.back() == '\\')
         cleanedPath.pop_back();
 

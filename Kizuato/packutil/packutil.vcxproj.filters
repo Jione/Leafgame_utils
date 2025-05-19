@@ -30,6 +30,9 @@
     <ClInclude Include="extractor.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="string_util.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="file_utils.cpp">
@@ -48,6 +51,9 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="extractor.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="string_util.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>

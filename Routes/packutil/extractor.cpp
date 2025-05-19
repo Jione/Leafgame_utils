@@ -1,6 +1,7 @@
 #include "extractor.h"
 #include "package_header.h"
 #include "lzss.h"
+#include "string_util.h"
 
 #include <fstream>
 #include <iostream>
@@ -48,8 +49,9 @@ bool extract_package(const std::string& pakFilePath) {
     fs::create_directory(baseName);
 
     for (const auto& entry : entries) {
+        std::string fName = shiftJisToAcp(entry.fileName);
         if (entry.fileType == 0xCCCCCCCC) {
-            std::cout << "[Skip] Unsupported file type for: " << entry.fileName << "\n";
+            std::cout << "[Skip] Unsupported file type for: " << fName << "\n";
             continue;
         }
 
@@ -59,13 +61,15 @@ bool extract_package(const std::string& pakFilePath) {
                 isAscii = (isAscii && ((unsigned char)chr < 128));
             }
             if (!isAscii) {
-                std::cout << "[Skip] Unsupported file type for: " << entry.fileName << "\n";
+                std::cout << "[Skip] Unsupported file type for: " << fName << "\n";
                 continue;
             }
         }
 
         std::string outputPath = baseName + "/" + std::string(entry.fileName);
-        std::ofstream outFile(outputPath, std::ios::binary);
+        std::wstring utf16Path = stringToWstring(baseName) + L"/" + shiftJisToWstring(std::string(entry.fileName));
+        std::ofstream outFile;
+        outFile.open(utf16Path.c_str(), std::ios::binary);
         if (!outFile) {
             std::cerr << "[Error] Failed to create: " << outputPath << "\n";
             //return false;
@@ -73,7 +77,7 @@ bool extract_package(const std::string& pakFilePath) {
         }
 
         if (entry.length == 0) {
-            std::cout << "[Extracted] Empty file created: " << entry.fileName << "\n";
+            std::cout << "[Extracted] Empty file created: " << fName << "\n";
             continue;
         }
 
@@ -87,12 +91,12 @@ bool extract_package(const std::string& pakFilePath) {
         }
         else if (entry.fileType == 0x00000001) {
             if (!lzss_decompress_stream(compressedStream, outFile)) {
-                std::cerr << "[Error] Failed to decompress: " << entry.fileName << "\n";
+                std::cerr << "[Error] Failed to decompress: " << fName << "\n";
                 return false;
             }
         }
         outFile.close();
-        std::cout << "[Extracted] " << entry.fileName << "\n";
+        std::cout << "[Extracted] " << fName << "\n";
     }
 
     std::cout << "[Success] Package extracted to folder: " << baseName << "\n\n";

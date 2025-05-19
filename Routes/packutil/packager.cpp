@@ -1,6 +1,7 @@
 #include "packager.h"
 #include "file_utils.h"
 #include "package_header.h"
+#include "string_util.h"
 #include "lzss.h"
 
 #include <fstream>
@@ -51,16 +52,16 @@ bool create_package(const std::string& folderPath) {
     pkgFile.seekp(headerSize, std::ios::beg);
 
     for (size_t i = 0; i < fileList.size(); ++i) {
-        std::string fullPath = folderPath;
+        std::wstring fullPath = stringToWstring(folderPath);
         if (!folderPath.empty() && folderPath.back() != '\\')
-            fullPath += "\\";
+            fullPath += L"\\";
         fullPath += fileList[i].relativePath;
 
-        std::cout << "[Compressing] " << fileList[i].relativePath << "\n";
+        std::cout << "[Compressing] " << wstringToString(fileList[i].relativePath) << "\n";
 
         std::streampos offset = pkgFile.tellp();
         if (!lzss_compress_file_to_stream(fullPath, pkgFile)) {
-            std::cerr << "[Error] Failed to compress: " << fileList[i].relativePath << "\n";
+            std::cerr << "[Error] Failed to compress: " << wstringToString(fileList[i].relativePath) << "\n";
             return false;
         }
         std::streampos after = pkgFile.tellp();

@@ -6,8 +6,8 @@
 #include <vector>
 
 struct FileEntry {
-    std::string relativePath;
-    std::string fileName;
+    std::wstring relativePath;
+    std::wstring fileName;
 };
 
 // 폴더 경로가 유효한지 확인

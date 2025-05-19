@@ -1,4 +1,5 @@
 #include "lzss.h"
+#include "string_util.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -166,10 +167,10 @@ static void Encode() {
 }
 
 // 외부 노출 함수: 파일을 압축하여 outputStream에 기록
-bool lzss_compress_file_to_stream(const std::string& inputFilePath, std::ostream& outputStream) {
+bool lzss_compress_file_to_stream(const std::wstring& inputFilePath, std::ostream& outputStream) {
     std::ifstream input(inputFilePath, std::ios::binary);
     if (!input.is_open()) {
-        std::cerr << "[Error] Cannot open: " << inputFilePath << "\n";
+        std::cerr << "[Error] Cannot open: " << wstringToString(inputFilePath) << "\n";
         return false;
     }
 
@@ -180,7 +181,6 @@ bool lzss_compress_file_to_stream(const std::string& inputFilePath, std::ostream
 
     Encode();
 
-
     inFile.close();
     outStream = nullptr;
 
@@ -188,7 +188,7 @@ bool lzss_compress_file_to_stream(const std::string& inputFilePath, std::ostream
     uint32_t compressedTotalSize = static_cast<uint32_t>(lzssBytes.size()) + 8;
 
     if (compressedTotalSize == 8) {
-        std::cout << "[Alert] Empty file wroted: " << inputFilePath << "\n";
+        std::cout << "[Alert] Empty file wroted: " << wstringToString(inputFilePath) << "\n";
         return outputStream.good();
     }
 
