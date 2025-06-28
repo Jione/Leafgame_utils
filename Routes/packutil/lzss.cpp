@@ -4,6 +4,7 @@
 #include <iostream>
 #include <sstream>
 #include <cstdint>
+#include <cassert>
 
 // 압축 설정 상수
 static const int historyBufferSize = 4096;
@@ -17,6 +18,79 @@ static unsigned long int printcount = 0;
 static unsigned char text_buf[historyBufferSize + maxMatchLength - 1];
 static int match_position, match_length;
 static int leftChild[historyBufferSize + 1], rightChild[historyBufferSize + 257], parent[historyBufferSize + 1];
+static char shiftArray[4];
+
+
+// ------------------------------------
+// 보조함수
+// ------------------------------------
+static unsigned char reverse_bits8(unsigned char value) {
+    // 4비트 단위로 스왑
+    value = static_cast<unsigned char>((value & 0xF0) >> 4 | (value & 0x0F) << 4);
+    // 2비트 단위로 스왑
+    value = static_cast<unsigned char>((value & 0xCC) >> 2 | (value & 0x33) << 2);
+    // 1비트 단위로 스왑
+    value = static_cast<unsigned char>((value & 0xAA) >> 1 | (value & 0x55) << 1);
+    return value;
+}
+
+static void initShiftArray() {
+    // 기준 문자열
+    static const char baseValue[5] = "ABCD";
+    // 길이 검증
+    assert(std::strlen(initShiftChar) == 4);
+
+    for (size_t i = 0; i < 4; ++i) {
+        char c = initShiftChar[i];
+        bool found = false;
+        // baseValue 에서 c 를 찾아 인덱스 저장
+        for (size_t j = 0; j < 4; ++j) {
+            if (baseValue[j] == c) {
+                shiftArray[i] = static_cast<unsigned char>(j);
+                found = true;
+                break;
+            }
+        }
+        // A-D 외의 문자가 들어오면 에러
+        assert(found);
+    }
+}
+
+static void shiftValues(int& i, int& j, bool toEncode) {
+    // 1) nibble 분리: [i_hi, i_lo, j_hi, j_lo]
+    uint8_t arr[4] = {
+        static_cast<uint8_t>((i >> 4) & 0xF),
+        static_cast<uint8_t>(i & 0xF),
+        static_cast<uint8_t>((j >> 4) & 0xF),
+        static_cast<uint8_t>(j & 0xF)
+    };
+
+    uint8_t out[4];
+
+    if (toEncode) {
+        // 인코드: out[k] = arr[ shiftArray[k] ]
+        for (int k = 0; k < 4; ++k)
+            out[k] = arr[shiftArray[k]];
+    }
+    else {
+        // 디코드: 역매핑 찾기
+        // out[k] = arr[src] where shiftArray[src] == k
+        for (int k = 0; k < 4; ++k) {
+            for (int src = 0; src < 4; ++src) {
+                if (shiftArray[src] == k) {
+                    out[k] = arr[src];
+                    break;
+                }
+            }
+        }
+    }
+
+    // 2) 다시 바이트로 조합
+    uint8_t newI = static_cast<uint8_t>((out[0] << 4) | out[1]);
+    uint8_t newJ = static_cast<uint8_t>((out[2] << 4) | out[3]);
+    i = newI;
+    j = newJ;
+}
 
 // ------------------------------------
 // 압축 (Encode)
@@ -114,14 +188,24 @@ static void Encode() {
     s = 0;
     r = historyBufferSize - maxMatchLength;
 
-    for (i = s; i < r; i++) text_buf[i] = ' ';
+    for (i = s; i < r; i++) text_buf[i] = initFillChar;
     for (len = 0; len < maxMatchLength && (c = inFile.get()) != EOF; len++)
         text_buf[r + len] = c;
 
     if ((textsize = len) == 0) return;
 
-    for (i = 1; i <= maxMatchLength; i++) InsertNode(r - i);
-    InsertNode(r);
+    if (isPrefillCompress) {
+        for (i = 1; i <= maxMatchLength; i++) InsertNode(r - i);
+        InsertNode(r);
+    }
+    else {
+        InsertNode(r);
+        DeleteNode(r);
+    }
+
+    if (isShiftFlagData) {
+        initShiftArray();
+    }
 
     do {
         if (match_length > len) match_length = len;
@@ -131,13 +215,23 @@ static void Encode() {
             code_buf[0] |= mask;
             code_buf[code_buf_ptr++] = text_buf[r];
         }
-        else {
+        else if (!isShiftFlagData) {
             code_buf[code_buf_ptr++] = (unsigned char)match_position;
             code_buf[code_buf_ptr++] = (unsigned char)(((match_position >> 4) & 0xf0) | (match_length - (threshold + 1)));
         }
+        else {
+            int i = match_position;
+            int j = ((match_position >> 4) & 0xf0) | (match_length - (threshold + 1));
+            shiftValues(i, j, true);
+            code_buf[code_buf_ptr++] = i;
+            code_buf[code_buf_ptr++] = j;
+        }
 
         if ((mask <<= 1) == 0) {
-            for (i = 0; i < code_buf_ptr; i++) outStream->put(code_buf[i]);
+            if (isRotateFlag) {
+                code_buf[0] = reverse_bits8(code_buf[0]);
+            }
+            for (i = 0; i < code_buf_ptr; i++) outStream->put(isXorData ? (code_buf[i] ^ 0xFF) : code_buf[i]);
             code_buf[0] = 0;
             code_buf_ptr = mask = 1;
         }
@@ -161,9 +255,13 @@ static void Encode() {
         }
     } while (len > 0);
 
-    if (code_buf_ptr > 1)
+    if (code_buf_ptr > 1) {
+        if (isRotateFlag) {
+            code_buf[0] = reverse_bits8(code_buf[0]);
+        }
         for (i = 0; i < code_buf_ptr; i++)
-            outStream->put(code_buf[i]);
+            outStream->put(isXorData ? (code_buf[i] ^ 0xFF) : code_buf[i]);
+    }
 }
 
 // 외부 노출 함수: 파일을 압축하여 outputStream에 기록
@@ -222,19 +320,32 @@ bool lzss_decompress_stream(std::istream& inputStream, std::ostream& outputStrea
     unsigned int flags;
 
     for (i = 0; i < historyBufferSize - maxMatchLength; i++)
-        text_buf[i] = ' ';
+        text_buf[i] = initFillChar;
     r = historyBufferSize - maxMatchLength;
     flags = 0;
+
+    if (isShiftFlagData) {
+        initShiftArray();
+    }
 
     size_t totalWritten = 0;
     while (totalWritten < originalSize) {
         if (((flags >>= 1) & 256) == 0) {
             if ((c = inputStream.get()) == EOF) break;
+            if (isXorData) {
+                c ^= 0xFF;
+            }
+            if (isRotateFlag) {
+                c = reverse_bits8(c);
+            }
             flags = c | 0xFF00;
         }
 
         if (flags & 1) {
             if ((c = inputStream.get()) == EOF) break;
+            if (isXorData) {
+                c ^= 0xFF;
+            }
             outputStream.put((char)c);
             text_buf[r++] = c;
             r &= (historyBufferSize - 1);
@@ -243,6 +354,13 @@ bool lzss_decompress_stream(std::istream& inputStream, std::ostream& outputStrea
         else {
             if ((i = inputStream.get()) == EOF) break;
             if ((j = inputStream.get()) == EOF) break;
+            if (isXorData) {
+                i ^= 0xFF;
+                j ^= 0xFF;
+            }
+            if (isShiftFlagData) {
+                shiftValues(i, j, false);
+            }
             i |= ((j & 0xF0) << 4);
             j = (j & 0x0F) + threshold;
             for (k = 0; k <= j; k++) {

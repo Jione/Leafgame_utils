@@ -159,6 +159,21 @@ uint32_t SdtBuilder::calculateOperatorSize(const OperatorData& op) {
                 std::string s = findTranslatedString(id);
                 size += (argType == ScriptArgumentType::String) ? 1 : 2;
                 size += (uint32_t)s.size();
+
+                if (op.operatorName == "SetMessage" || op.operatorName == "SetMessage2" || op.operatorName == "SetMessageEx") {
+                    colStatus = 0;
+                    rowStatus = 0;
+                    isHalf = false;
+                }
+                else if (op.operatorName == "SetSelectMes" || op.operatorName == "SetSelectMesEx") {
+                    colStatus = 0;
+                    rowStatus++;
+                    isHalf = false;
+                }
+                calculateFlow(s);
+                if (rowMax < rowStatus) {
+                    std::cerr << "[경고] 스크립트 행 초과. ID: " << id << "(" << (1 + rowStatus) << "행, " << colStatus << "자)\n";
+                }
             }
             else if (argType == ScriptArgumentType::String) {
                 size += 1 + (uint32_t)arg.value.size();
@@ -193,6 +208,13 @@ uint32_t SdtBuilder::calculateOperatorSize(const OperatorData& op) {
 
     return size;
 }
+
+const std::vector<uint16_t> SdtBuilder::fBytes = {
+    0x20, 0x21, 0x2C, 0x2E, 0x3F, 0x5E,
+    0x8140, 0x8141, 0x8142, 0x8148, 0x8149,
+    0x816A, 0x8176, 0x8178,
+    0xF040, 0xF041, 0xF042, 0xF043, 0xF044, 0xF045
+};
 
 std::vector<uint8_t> SdtBuilder::encodeOperator(const OperatorData& op) {
     std::vector<uint8_t> out;
@@ -300,4 +322,145 @@ std::vector<uint8_t> SdtBuilder::encodeOperator(const OperatorData& op) {
     }
 
     return out;
+}
+
+
+std::string SdtBuilder::removeControlCodes(const std::string& s) {
+    std::string out;
+    out.reserve(s.size());
+    for (size_t i = 0; i < s.size();) {
+        if (s[i] == '\\' && i + 1 < s.size() && s[i + 1] == 'k') {
+            i += 2; // \k 삭제
+        }
+        else if (s[i] == '<') {
+            if (i + 1 < s.size() && s[i + 1] == 'R') {
+                // <R문자|루비문자>
+                size_t pipe = s.find('|', i + 2);
+                if (pipe != std::string::npos) {
+                    // 문자 부분 추가
+                    out.append(s.substr(i + 2, pipe - (i + 2)));
+                    size_t gt = s.find('>', pipe + 1);
+                    i = (gt == std::string::npos ? s.size() : gt + 1);
+                }
+                else {
+                    // 형식 이상 시 태그 전체 제거
+                    size_t gt = s.find('>', i + 1);
+                    i = (gt == std::string::npos ? s.size() : gt + 1);
+                }
+            }
+            else if (i + 1 < s.size() && std::isupper((unsigned char)s[i + 1])) {
+                // <영문1자+숫자+문자>
+                size_t p = i + 2;
+                // 숫자 스킵
+                while (p < s.size() && std::isdigit((unsigned char)s[p])) p++;
+                // 태그 내부 텍스트 부분 추가
+                size_t gt = s.find('>', p);
+                if (gt != std::string::npos) {
+                    out.append(s.substr(p, gt - p));
+                    i = gt + 1;
+                }
+                else {
+                    // '>' 없으면 텍스트 후반부 모두 추가
+                    out.append(s.substr(p));
+                    break;
+                }
+            }
+            else {
+                // 알 수 없는 태그, '<' 문자 자체 추가
+                out.push_back(s[i]);
+                i++;
+            }
+        }
+        else {
+            // 일반 문자
+            out.push_back(s[i]);
+            i++;
+        }
+    }
+    return out;
+}
+
+void SdtBuilder::calculateFlow(const std::string& input) {
+    // 제어코드 제거
+    std::string proc = removeControlCodes(input);
+
+    // MBCS 여부에 따라 코드 분리
+    std::vector<uint16_t> codes;
+    codes.reserve(proc.size());
+    for (size_t i = 0; i < proc.size();) {
+        unsigned char c = static_cast<unsigned char>(proc[i]);
+        if (c >= 0x80 && i + 1 < proc.size()) {
+            // 두 바이트 문자
+            unsigned char c2 = static_cast<unsigned char>(proc[i + 1]);
+            uint16_t code = static_cast<uint16_t>(c) << 8 | c2;
+            codes.push_back(code);
+            i += 2;
+        }
+        else {
+            // 단일 바이트
+            codes.push_back(static_cast<uint16_t>(c));
+            i += 1;
+        }
+    }
+
+    // 코드 순회하며 상태 계산
+    int i = 0;
+    bool isUserFeed = false;
+    for (uint16_t code : codes) {
+
+        // 자동 개행 \n 처리
+        i++;
+        if (isUserFeed) {
+            isUserFeed = false;
+            continue;
+        }
+
+        if ((code == 0x5C) && (static_cast<unsigned char>(codes[i]) == 'n')) {
+            isHalf = false;
+            if (!(isLinefeed && (colStatus == 0))) {
+                rowStatus++;
+            }
+            isLinefeed = false;
+            colStatus = 0;
+            isUserFeed = true;
+            continue;
+        }
+
+        // 반각 vs 전각 처리
+        if (code < 0x80) {
+            // 반각
+            if (!isHalf) {
+                colStatus++;
+                isHalf = true;
+            }
+            else {
+                isHalf = false;
+                // colStatus 변화 없음
+            }
+        }
+        else {
+            // 전각
+            // isHalf 유지
+            colStatus++;
+        }
+
+        // colStatus == colMax일 때
+        if (colStatus > colMax) {
+            if (!(std::find(fBytes.begin(), fBytes.end(), codes[i]) != fBytes.end())) {
+                isHalf = false;
+                isLinefeed = true;
+                colStatus = 0;
+                rowStatus++;
+                continue;
+            }
+        }
+
+        // colStatus == 1일 때 특수 처리
+        if ((colStatus <= 1) && isLinefeed) {
+            if (code == 0x20 || code == 0x8140) {
+                isHalf = false;
+                colStatus = 0;
+            }
+        }
+    }
 }

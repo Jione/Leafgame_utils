@@ -86,6 +86,7 @@ bool extract_package(const std::string& pakFilePath) {
         inFile.read(compressed.data(), entry.length);
         std::istringstream compressedStream(std::string(compressed.begin(), compressed.end()));
 
+        // 비압축 플래그
         if (entry.fileType == 0x00000000) {
             outFile << compressedStream.str();
         }

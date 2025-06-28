@@ -67,6 +67,25 @@ std::string wstringToString(const std::wstring& wstr) {
     return str;
 }
 
+// UTF-16 std::wstring -> UTF8(std::string) 변환
+std::string wstringToUtf8(const std::wstring& wstr) {
+    if (wstr.empty()) return {};
+    int sizeNeeded = ::WideCharToMultiByte(
+        CP_UTF8, 0,
+        wstr.data(), (int)wstr.size(),
+        nullptr, 0,
+        nullptr, nullptr
+    );
+    std::string str(sizeNeeded, '\0');
+    WideCharToMultiByte(
+        CP_UTF8, 0,
+        wstr.data(), (int)wstr.size(),
+        &str[0], sizeNeeded,
+        nullptr, nullptr
+    );
+    return str;
+}
+
 // ANSI 문자열을 Shift-JIS로 바로 변환
 std::string acpToShiftJis(const std::string& acp) {
     std::wstring wide = stringToWstring(acp);

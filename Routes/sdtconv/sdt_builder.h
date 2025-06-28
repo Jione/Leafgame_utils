@@ -40,4 +40,12 @@ private:
     void updateBranchAddresses(std::vector<OperatorData>& ops, const std::map<uint32_t, uint32_t>& addrMap);
     std::vector<uint8_t> encodeOperator(const OperatorData& op);
     uint32_t calculateOperatorSize(const OperatorData& op);
+    std::string removeControlCodes(const std::string& s);
+    void calculateFlow(const std::string& input);
+
+    static const std::vector<uint16_t> fBytes;
+    const int colMax = 26 - 1;
+    const int rowMax = 11 - 1;
+    bool isHalf, isLinefeed;
+    int colStatus, rowStatus;
 };
