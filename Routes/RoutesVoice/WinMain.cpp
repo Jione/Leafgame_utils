@@ -468,7 +468,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             MessageBoxW(
                 hwnd,
                 TEXT(
-                    L"Routes Voice Player v1.0 (64비트)\n"
+                    L"Routes Voice Player v1.01 (64비트)\n"
                     L"\n"
                     L"지원OS: Windows 7 이상\n"
                 ),
@@ -479,7 +479,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             MessageBoxW(
                 hwnd,
                 TEXT(
-                    L"Routes Voice Player v1.0 (32비트)\n"
+                    L"Routes Voice Player v1.01 (32비트)\n"
                     L"\n"
                     L"지원OS: Windows XP 이상\n"
                 ),
