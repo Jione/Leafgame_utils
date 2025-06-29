@@ -782,6 +782,9 @@ bool ScanProcess::CalculateCurrentBlockIndex() {
                         BlockCountFromPointer(&m_sdtBuffer[i], strLength, vFlag, blockCount);
                     }
 
+                    if ((m_processStatus.scriptIndex == 20030) && (blockCount == 111)) {
+                        blockCount++;
+                    }
                     if ((m_processStatus.scriptIndex == 70010) && (blockCount == 128)) {
                         vFlag = 0;
                     }
@@ -1012,9 +1015,6 @@ void ScanProcess::BlockCountFromPointer(const char* textBuff, int textLen, int& 
         if (isFirst && ((0 < voiceFlag) || addAll2)) {
             if ((m_processStatus.scriptIndex == 10150) && (m_processStatus.voiceIndexBuffer == 60)) {
                 blockCount += 2;
-            }
-            else if ((m_processStatus.scriptIndex == 20030) && (blockCount == 106)) {
-                blockCount++;
             }
             lastVoice = bCount;
             blockCount++;
