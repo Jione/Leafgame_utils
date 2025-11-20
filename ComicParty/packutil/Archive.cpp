@@ -79,7 +79,7 @@ namespace Archive {
 
         // Collect Files
         std::vector<fs::path> files;
-        for (const auto& entry : fs::recursive_directory_iterator(root)) {
+        for (const auto& entry : fs::directory_iterator(root)) {
             if (entry.is_regular_file()) {
                 files.push_back(entry.path());
             }
