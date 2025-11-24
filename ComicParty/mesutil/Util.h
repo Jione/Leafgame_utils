@@ -2,29 +2,28 @@
 #include <Windows.h>
 #include <string>
 #include <vector>
+#include <map>
 
 namespace Util {
-    // Enumeration for encoding types
+
+    // Enum not strictly used for logic anymore, but kept for compatibility if needed
     enum class EncodingType {
-        ACP,        // CP_ACP
-        ShiftJIS,   // 932
-        UTF8,       // 65001
-        CustomUTF8  // User defined logic
+        Auto,
+        Utf8
     };
 
-    // Open file dialog to select multiple files
+    // Open file dialog
     std::vector<std::wstring> GetMesFiles(LPWSTR lpExt);
 
-    // Convert string encoding
-    std::string StringConvert(const std::string& src, EncodingType srcEnc, EncodingType targetEnc);
+    // Helper: Convert between Wide and MultiByte using specific CodePage
+    std::string WideToMultiByteStr(const std::wstring& wstr, UINT codePage);
+    std::wstring MultiByteToWideStr(const std::string& str, UINT codePage);
 
-    // Custom UTF-8 logic: XOR 0x40 on first byte if it matches specific ranges
-    void EncodeCustomUTF8(std::string& text);
+    // --- Core Parsing Logic ---
 
-    // Helper: Get raw codepage ID
-    UINT GetCodePageID(EncodingType type);
+    // Converts raw MES binary data (with mixed encodings/control codes) to UTF-8 string for Excel
+    std::string MesBytesToUtf8(const std::vector<char>& data, uint32_t offset, uint32_t len);
 
-    bool GetSjisException(unsigned char lead, unsigned char trail, wchar_t& outUnicode);
-
-    bool GetUnicodeException(wchar_t unicode, unsigned char& outLead, unsigned char& outTrail);
+    // Converts UTF-8 string from Excel back to MES binary data
+    std::vector<char> Utf8ToMesBytes(const std::string& utf8Str);
 }

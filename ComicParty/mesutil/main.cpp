@@ -6,49 +6,34 @@
 void PrintTitle() {
     system("cls");
     std::cout << "========================================" << std::endl;
-    std::cout << " MES <-> XLSX Converter Tool" << std::endl;
+    std::cout << " MES <-> XLSX Converter (Custom)" << std::endl;
     std::cout << "========================================" << std::endl;
 }
 
 int main() {
     while (true) {
         PrintTitle();
-        std::cout << "1. MES -> XLSX (Auto Detect Encoding)" << std::endl;
-        std::cout << "2. XLSX -> MES (System Language: CP_ACP)" << std::endl;
-        std::cout << "3. XLSX -> MES (Shift-JIS)" << std::endl;
-        std::cout << "4. XLSX -> MES (Custom UTF-8)" << std::endl;
+        std::cout << "1. MES -> XLSX (Export)" << std::endl;
+        std::cout << "2. XLSX -> MES (Import)" << std::endl;
         std::cout << "Q. Quit" << std::endl;
         std::cout << "----------------------------------------" << std::endl;
-        std::cout << "Select Mode: ";
+        std::cout << "Select: ";
 
         char input = _getch();
         std::cout << input << std::endl;
 
         if (input == 'q' || input == 'Q') break;
 
-        std::vector<std::wstring> files;
-        Util::EncodingType targetEnc = Util::EncodingType::ShiftJIS;
-        bool isExport = false; // true = MES->XLSX, false = XLSX->MES
+        if (input != '1' && input != '2') continue;
 
-        switch (input) {
-        case '1':
-            isExport = true;
+        bool isExport = (input == '1');
+        std::vector<std::wstring> files;
+
+        if (isExport) {
             files = Util::GetMesFiles((LPWSTR)L"MES Files\0*.mes\0");
-            break;
-        case '2':
-            targetEnc = Util::EncodingType::ACP;
+        }
+        else {
             files = Util::GetMesFiles((LPWSTR)L"Excel Files\0*.xlsx\0");
-            break;
-        case '3':
-            targetEnc = Util::EncodingType::ShiftJIS;
-            files = Util::GetMesFiles((LPWSTR)L"Excel Files\0*.xlsx\0");
-            break;
-        case '4':
-            targetEnc = Util::EncodingType::CustomUTF8;
-            files = Util::GetMesFiles((LPWSTR)L"Excel Files\0*.xlsx\0");
-            break;
-        default:
-            continue;
         }
 
         if (files.empty()) {
@@ -64,7 +49,7 @@ int main() {
                 Script::ParseMes((LPWSTR)file.c_str());
             }
             else {
-                Script::ApplyTransTo((LPWSTR)file.c_str(), targetEnc);
+                Script::ApplyTransTo((LPWSTR)file.c_str());
             }
         }
 

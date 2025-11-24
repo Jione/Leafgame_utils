@@ -45,43 +45,30 @@ namespace Script {
 
         header.scrPos.resize(header.uCount);
         header.scrLen.resize(header.uCount);
-        header.vLen.resize(header.uCount); // Resize vLen
+        header.vLen.resize(header.uCount);
 
         file.read(reinterpret_cast<char*>(header.scrPos.data()), header.uCount * sizeof(uint32_t));
         file.read(reinterpret_cast<char*>(header.scrLen.data()), header.uCount * sizeof(uint32_t));
-        file.read(reinterpret_cast<char*>(header.vLen.data()), header.uCount * sizeof(uint32_t)); // Read vLen
+        file.read(reinterpret_cast<char*>(header.vLen.data()), header.uCount * sizeof(uint32_t));
 
-        // Read Data Blob (Strings + Voice strings)
-        std::vector<char> stringBlob((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        // Read Data Blob
+        // Use stream to vector directly
+        file.seekg(0, std::ios::end);
+        std::streampos fileSize = file.tellg();
+        size_t headerSize = sizeof(uint32_t) + (header.uCount * 3 * sizeof(uint32_t));
+        size_t blobSize = (size_t)fileSize - headerSize;
+
+        std::vector<char> stringBlob(blobSize);
+        file.seekg(headerSize, std::ios::beg);
+        file.read(stringBlob.data(), blobSize);
         file.close();
 
-        // 2. Encoding Detection
-        Util::EncodingType currentEncoding = Util::EncodingType::ShiftJIS;
+        std::cout << "Analyzing " << header.uCount << " entries..." << std::endl;
 
-        // Scan for Half-width Katakana (0xA1 - 0xDF)
-        bool tok = false;
-        for (char c : stringBlob) {
-            unsigned char uc = static_cast<unsigned char>(c);
-            if (!tok) {
-                if (uc >= 0xA1 && uc <= 0xDF) {
-                    currentEncoding = Util::EncodingType::CustomUTF8;
-                    break;
-                }
-                else if (0x80 <= uc) {
-                    tok = true;
-                }
-            }
-            else {
-                tok = false;
-            }
-        }
-
-        std::cout << "Detected Encoding: " << (currentEncoding == Util::EncodingType::CustomUTF8 ? "Custom UTF-8" : "Shift-JIS") << std::endl;
-
-        // 3. Create Excel
+        // 2. Create Excel
         std::wstring xlsxPath = filePath;
         xlsxPath.replace(xlsxPath.find(L".mes"), 4, L".xlsx");
-        std::string xlsxPathStr = Util::StringConvert(std::string(xlsxPath.begin(), xlsxPath.end()), Util::EncodingType::ACP, Util::EncodingType::UTF8);
+        std::string xlsxPathStr = Util::WideToMultiByteStr(xlsxPath, CP_UTF8);
 
         XLDocument doc;
         doc.create(xlsxPathStr);
@@ -93,67 +80,50 @@ namespace Script {
         wks.cell("C1").value() = "String";
         wks.cell("D1").value() = "Translate";
 
-        // 4. Process Data
+        // 3. Process Data
         for (uint32_t i = 0; i < header.uCount; ++i) {
-            // Calculate offsets
-            // String offset is explicitly given
             uint32_t sOffset = header.scrPos[i];
             uint32_t sLen = header.scrLen[i];
 
-            // Voice offset follows immediately after the string
-            // Structure: { scr1[len], v1[len], ... }
+            // Voice follows string in blob logical structure, but blob is linear
+            // The blob structure described is { scr1, v1, scr2, v2 ... }
+            // so vOffset is sOffset + sLen
             uint32_t vOffset = sOffset + sLen;
             uint32_t vLen = header.vLen[i];
 
             if (sOffset >= stringBlob.size()) continue;
 
-            // --- Extract Main String ---
-            std::string rawStr;
-            if (sLen > 0 && sOffset + sLen <= stringBlob.size()) {
-                rawStr.assign(&stringBlob[sOffset], sLen - 1); // Exclude null for cell
-            }
-            else {
-                rawStr = "";
-            }
-
-            // --- Extract Voice String ---
+            // --- Extract Voice (ASCII) ---
             std::string voiceStr;
             if (vLen > 0 && vOffset + vLen <= stringBlob.size()) {
-                // Voice string is just ASCII/Filename, usually no embedded nulls
-                // Length includes null terminator, exclude it for display
+                // vLen includes null.
                 voiceStr.assign(&stringBlob[vOffset], vLen - 1);
             }
-            else {
-                voiceStr = "";
-            }
 
-            // Convert String to UTF-8
-            std::string finalStr = Util::StringConvert(rawStr, currentEncoding, Util::EncodingType::UTF8);
-
-            // --- Verification Logic (Shift-JIS) ---
-            if (currentEncoding == Util::EncodingType::ShiftJIS) {
-                std::string checkStr = Util::StringConvert(finalStr, Util::EncodingType::UTF8, Util::EncodingType::ShiftJIS);
-                if (rawStr != checkStr) {
-                    std::cerr << "[Warning] Conversion mismatch at Index " << (i + 1) << std::endl;
-                }
+            // --- Extract & Convert Main String ---
+            // We use sLen - 1 to exclude the null terminator from processing
+            uint32_t processLen = (sLen > 0) ? sLen - 1 : 0;
+            std::string finalStr;
+            if (processLen > 0 && sOffset + processLen <= stringBlob.size()) {
+                finalStr = Util::MesBytesToUtf8(stringBlob, sOffset, processLen);
             }
 
             // Write Row
             int row = i + 2;
             wks.cell(row, 1).value() = (int)(i + 1);
-            wks.cell(row, 2).value() = voiceStr; // Write Voice
+            wks.cell(row, 2).value() = voiceStr;
             wks.cell(row, 3).value() = finalStr;
             wks.cell(row, 4).value() = "";
         }
 
         doc.save();
-        std::wcout << L"Converted to: " << xlsxPath << std::endl;
+        std::wcout << L"Exported to: " << xlsxPath << std::endl;
         return true;
     }
 
-    bool ApplyTransTo(LPWSTR lpTargetFile, Util::EncodingType targetEnc) {
+    bool ApplyTransTo(LPWSTR lpTargetFile) {
         std::wstring filePath = lpTargetFile;
-        std::string xlsxPathStr = Util::StringConvert(std::string(filePath.begin(), filePath.end()), Util::EncodingType::ACP, Util::EncodingType::UTF8);
+        std::string xlsxPathStr = Util::WideToMultiByteStr(filePath, CP_UTF8);
 
         if (!fs::exists(filePath)) {
             std::wcout << L"File not found: " << filePath << std::endl;
@@ -173,11 +143,11 @@ namespace Script {
         uint32_t rowCount = wks.rowCount();
 
         MesHeader header;
-        std::vector<std::string> outStrings; // Main Strings
-        std::vector<std::string> outVoices;  // Voice Strings
+        std::vector<std::vector<char>> blobParts; // Stores {string_bytes, null, voice_bytes, null}
 
-        // 1. Read Excel Rows
+        // 1. Read Excel
         for (uint32_t row = 2; row <= rowCount; ++row) {
+            // Stop on empty index
             if (wks.cell(row, 1).value().type() == XLValueType::Empty) break;
 
             // Read Voice
@@ -185,9 +155,8 @@ namespace Script {
             if (wks.cell(row, 2).value().type() != XLValueType::Empty) {
                 vStr = wks.cell(row, 2).value().get<std::string>();
             }
-            outVoices.push_back(vStr);
 
-            // Read String
+            // Read String (Translate -> Original)
             std::string text;
             if (wks.cell(row, 4).value().type() != XLValueType::Empty) {
                 text = wks.cell(row, 4).value().get<std::string>();
@@ -196,47 +165,44 @@ namespace Script {
                 text = wks.cell(row, 3).value().get<std::string>();
             }
 
-            // Convert Encoding
-            std::string encodedStr = Util::StringConvert(text, Util::EncodingType::UTF8, targetEnc);
+            // Convert String (UTF-8 -> MES Bytes)
+            std::vector<char> strBytes = Util::Utf8ToMesBytes(text);
 
-            outStrings.push_back(encodedStr);
+            // Combine for this entry
+            std::vector<char> entryBlob;
+
+            // 1. String Bytes
+            entryBlob.insert(entryBlob.end(), strBytes.begin(), strBytes.end());
+            entryBlob.push_back('\0'); // String Null
+
+            // 2. Voice Bytes (Simple Copy + Null)
+            for (char c : vStr) entryBlob.push_back(c);
+            entryBlob.push_back('\0'); // Voice Null
+
+            blobParts.push_back(entryBlob);
+
+            // Metadata
+            header.scrLen.push_back((uint32_t)strBytes.size() + 1);
+            header.vLen.push_back((uint32_t)vStr.size() + 1);
         }
 
-        header.uCount = (uint32_t)outStrings.size();
+        header.uCount = (uint32_t)blobParts.size();
         header.scrPos.resize(header.uCount);
-        header.scrLen.resize(header.uCount);
-        header.vLen.resize(header.uCount);
 
-        // 3. Reconstruct Blob
-        uint32_t currentOffset = 0;
+        // 2. Flatten Blob & Calculate Offsets
         std::vector<char> finalBlob;
+        uint32_t currentOffset = 0;
 
         for (size_t i = 0; i < header.uCount; ++i) {
-            header.scrPos[i] = currentOffset; // Position of Main String
+            header.scrPos[i] = currentOffset;
 
-            // Process Main String
-            const std::string& s = outStrings[i];
-            uint32_t sLen = (uint32_t)s.size() + 1; // + Null
-            header.scrLen[i] = sLen;
+            const auto& part = blobParts[i];
+            finalBlob.insert(finalBlob.end(), part.begin(), part.end());
 
-            // Process Voice String
-            const std::string& v = outVoices[i];
-            uint32_t vLen = (uint32_t)v.size() + 1; // + Null
-            header.vLen[i] = vLen;
-
-            // Append Main String
-            finalBlob.insert(finalBlob.end(), s.begin(), s.end());
-            finalBlob.push_back('\0');
-
-            // Append Voice String
-            finalBlob.insert(finalBlob.end(), v.begin(), v.end());
-            finalBlob.push_back('\0');
-
-            // Update offset (String Len + Voice Len)
-            currentOffset += sLen + vLen;
+            currentOffset += (uint32_t)part.size();
         }
 
-        // 4. Write MES File
+        // 3. Write MES File
         std::wstring mesPath = filePath;
         mesPath.replace(mesPath.find(L".xlsx"), 5, L".mes");
 
@@ -249,11 +215,11 @@ namespace Script {
         file.write(reinterpret_cast<char*>(&header.uCount), sizeof(uint32_t));
         file.write(reinterpret_cast<char*>(header.scrPos.data()), header.uCount * sizeof(uint32_t));
         file.write(reinterpret_cast<char*>(header.scrLen.data()), header.uCount * sizeof(uint32_t));
-        file.write(reinterpret_cast<char*>(header.vLen.data()), header.uCount * sizeof(uint32_t)); // Write vLen
+        file.write(reinterpret_cast<char*>(header.vLen.data()), header.uCount * sizeof(uint32_t));
         file.write(finalBlob.data(), finalBlob.size());
 
         file.close();
-        std::wcout << L"Converted to: " << mesPath << std::endl;
+        std::wcout << L"Imported to: " << mesPath << std::endl;
         return true;
     }
 }

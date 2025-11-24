@@ -9,5 +9,5 @@ namespace Script {
     bool ParseMes(LPWSTR lpTargetFile);
 
     // XLSX -> MES
-    bool ApplyTransTo(LPWSTR lpTargetFile, Util::EncodingType targetEnc);
+    bool ApplyTransTo(LPWSTR lpTargetFile);
 }
