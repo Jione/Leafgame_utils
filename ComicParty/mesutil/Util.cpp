@@ -65,6 +65,20 @@ namespace Util {
         return res;
     }
 
+    std::string MultiByteToUtf8(const std::string& str, UINT codePage) {
+        if (str.empty()) return "";
+        int len = MultiByteToWideChar(codePage, 0, str.c_str(), (int)str.size(), NULL, 0);
+        if (len <= 0) return "";
+        std::wstring wstr(len, 0);
+        len = MultiByteToWideChar(codePage, 0, str.c_str(), (int)str.size(), &wstr[0], len);
+        if (len <= 0) return "";
+        len = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), NULL, 0, NULL, NULL);
+        if (len <= 0) return "";
+        std::string res(len, 0);
+        WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), &res[0], len, NULL, NULL);
+        return res;
+    }
+
     // --- Parsing Logic Helpers ---
 
     // Check if byte is a control code

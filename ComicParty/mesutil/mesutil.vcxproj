@@ -147,12 +147,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="EventParse.cpp" />
+    <ClCompile Include="EventFile.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Script.cpp" />
     <ClCompile Include="Util.cpp" />
     <ClCompile Include="Util.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="EventParse.h" />
+    <ClInclude Include="EventFile.h" />
     <ClInclude Include="Script.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -18,6 +18,7 @@ namespace Util {
     // Helper: Convert between Wide and MultiByte using specific CodePage
     std::string WideToMultiByteStr(const std::wstring& wstr, UINT codePage);
     std::wstring MultiByteToWideStr(const std::string& str, UINT codePage);
+    std::string MultiByteToUtf8(const std::string& str, UINT codePage);
 
     // --- Core Parsing Logic ---
 

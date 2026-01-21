@@ -1,0 +1,47 @@
+#include "resource.h"
+#include <windows.h>
+
+// 리소스 타입 "DAT" 정의
+
+// Text Resource
+IDR_PAK_EVENT_RES       DAT     "res\\event_res.pak"
+
+// Graphic Resources
+IDR_PAK_BACK_RES        DAT     "res\\Back_res.pak"
+IDR_PAK_CMKMAP_RES      DAT     "res\\cmkmap_res.pak"
+IDR_PAK_COMIKE_RES      DAT     "res\\comike_res.pak"
+IDR_PAK_ENDING_RES      DAT     "res\\ending_res.pak"
+IDR_PAK_EVENTCG_RES     DAT     "res\\EventCG_res.pak"
+IDR_PAK_FESTIVAL_RES    DAT     "res\\festival_res.pak"
+IDR_PAK_FRAME_RES       DAT     "res\\frame_res.pak"
+IDR_PAK_GUEST_RES       DAT     "res\\guest_res.pak"
+IDR_PAK_MOVIE_RES       DAT     "res\\movie_res.pak"
+IDR_PAK_OPENING_RES     DAT     "res\\opening_res.pak"
+IDR_PAK_PARAM_RES       DAT     "res\\param_res.pak"
+IDR_PAK_PRESENT_RES     DAT     "res\\present_res.pak"
+IDR_PAK_PRICE_RES       DAT     "res\\price_res.pak"
+IDR_PAK_SCHEDULE_RES    DAT     "res\\schedule_res.pak"
+IDR_PAK_SETTLE_RES      DAT     "res\\settle_res.pak"
+IDR_PAK_SHOPPING_RES    DAT     "res\\shopping_res.pak"
+IDR_PAK_UNIVFEST_RES    DAT     "res\\univfest_res.pak"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_MAIN_DIALOG DIALOGEX 0, 0, 190, 105
+STYLE DS_SETFONT | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION L"코믹 파티 한국어화 툴"
+FONT 9, "맑은 고딕"
+BEGIN
+GROUPBOX        L"스크립트", -1, 7, 7, 176, 38
+PUSHBUTTON      L"추출", IDC_BTN_TEXT_EXTRACT, 18, 22, 66, 16
+PUSHBUTTON      L"KoS로 병합", IDC_BTN_TEXT_BUILD, 100, 22, 66, 16
+
+GROUPBOX        L"그래픽", -1, 7, 48, 176, 38
+PUSHBUTTON      L"추출", IDC_BTN_GFX_EXTRACT, 18, 63, 66, 16
+PUSHBUTTON      L"KoR로 병합", IDC_BTN_GFX_BUILD, 100, 63, 66, 16
+
+LTEXT           L"대기 중", IDC_STATIC_STATUS, 7, 90, 176, 10
+END

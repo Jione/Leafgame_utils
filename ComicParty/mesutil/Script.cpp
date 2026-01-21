@@ -1,5 +1,6 @@
 #define NOMINMAX
 #include "Script.h"
+#include "EventParse.h"
 #include <fstream>
 #include <iostream>
 #include <filesystem>
@@ -65,6 +66,13 @@ namespace Script {
 
         std::cout << "Analyzing " << header.uCount << " entries..." << std::endl;
 
+        std::vector<int> vCharId;
+        vCharId.reserve(header.uCount);
+        for (int i = 0; i < header.uCount; ++i) {
+            vCharId[i] = -1;
+        }
+        Event::ParseCharaIDTable(lpTargetFile, vCharId);
+
         // 2. Create Excel
         std::wstring xlsxPath = filePath;
         xlsxPath.replace(xlsxPath.find(L".mes"), 4, L".xlsx");
@@ -76,9 +84,10 @@ namespace Script {
 
         // Headers
         wks.cell("A1").value() = "Index";
-        wks.cell("B1").value() = "Voice";
-        wks.cell("C1").value() = "String";
-        wks.cell("D1").value() = "Translate";
+        wks.cell("B1").value() = "Charactor";
+        wks.cell("C1").value() = "Voice";
+        wks.cell("D1").value() = "String";
+        wks.cell("E1").value() = "Translate";
 
         // 3. Process Data
         for (uint32_t i = 0; i < header.uCount; ++i) {
@@ -92,6 +101,15 @@ namespace Script {
             uint32_t vLen = header.vLen[i];
 
             if (sOffset >= stringBlob.size()) continue;
+
+            // --- Extract Charactor ---
+            std::string charStr = "";
+            if (vCharId[i] == -2) {
+                charStr = Util::MultiByteToUtf8("¼±ÅÃÁö", 949);
+            }
+            else if ((vCharId[i] >= 0) && (vCharId[i] < 0x38)) {
+                charStr = Util::MultiByteToUtf8(CharaName[(vCharId[i])], 949);
+            }
 
             // --- Extract Voice (ASCII) ---
             std::string voiceStr;
@@ -111,9 +129,10 @@ namespace Script {
             // Write Row
             int row = i + 2;
             wks.cell(row, 1).value() = (int)(i + 1);
-            wks.cell(row, 2).value() = voiceStr;
-            wks.cell(row, 3).value() = finalStr;
-            wks.cell(row, 4).value() = "";
+            wks.cell(row, 2).value() = charStr;
+            wks.cell(row, 3).value() = voiceStr;
+            wks.cell(row, 4).value() = finalStr;
+            wks.cell(row, 5).value() = "";
         }
 
         doc.save();
@@ -146,23 +165,23 @@ namespace Script {
         std::vector<std::vector<char>> blobParts; // Stores {string_bytes, null, voice_bytes, null}
 
         // 1. Read Excel
-        for (uint32_t row = 2; row <= rowCount; ++row) {
+        for (uint32_t row = 3; row <= rowCount; ++row) {
             // Stop on empty index
             if (wks.cell(row, 1).value().type() == XLValueType::Empty) break;
 
             // Read Voice
             std::string vStr;
-            if (wks.cell(row, 2).value().type() != XLValueType::Empty) {
-                vStr = wks.cell(row, 2).value().get<std::string>();
+            if (wks.cell(row, 3).value().type() != XLValueType::Empty) {
+                vStr = wks.cell(row, 3).value().get<std::string>();
             }
 
             // Read String (Translate -> Original)
             std::string text;
-            if (wks.cell(row, 4).value().type() != XLValueType::Empty) {
-                text = wks.cell(row, 4).value().get<std::string>();
+            if (wks.cell(row, 5).value().type() != XLValueType::Empty) {
+                text = wks.cell(row, 5).value().get<std::string>();
             }
-            if (text.empty() && wks.cell(row, 3).value().type() != XLValueType::Empty) {
-                text = wks.cell(row, 3).value().get<std::string>();
+            if (text.empty() && wks.cell(row, 4).value().type() != XLValueType::Empty) {
+                text = wks.cell(row, 4).value().get<std::string>();
             }
 
             // Convert String (UTF-8 -> MES Bytes)
