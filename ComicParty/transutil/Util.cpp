@@ -108,6 +108,14 @@ namespace Util {
                         i += 2 + advanced;
                         continue;
                     }
+                    if (c2 == 'F') { // %F -> $M#
+                        std::vector<uint32_t> nums;
+                        int advanced = ParseNumbersFromBin(&buffer[i + 2], len - (i + 2), nums, 1);
+                        result += "$M";
+                        if (!nums.empty()) result += std::to_string(nums[0]);
+                        i += 2 + advanced;
+                        continue;
+                    }
                     else if (c2 == 'C' && i + 2 < len && buffer[i + 2] == 'N') { // %CN -> $C#
                         std::vector<uint32_t> nums;
                         int advanced = ParseNumbersFromBin(&buffer[i + 3], len - (i + 3), nums, 1);
@@ -354,6 +362,7 @@ namespace Util {
                         std::wstring numStr = tagStr.substr(2, numEnd - 2);
                         if (prefix == '%') { // Special for %f, %CN
                             if (tagStr[1] == 'N') { blob.push_back('%'); blob.push_back('f'); } // $N -> %f
+                            if (tagStr[1] == 'M') { blob.push_back('%'); blob.push_back('F'); } // $M -> %F
                             else if (tagStr[1] == 'C') { blob.push_back('%'); blob.push_back('C'); blob.push_back('N'); } // $C -> %CN
                         }
                         else {
@@ -369,6 +378,7 @@ namespace Util {
                 if (sub.find(L"$X") == 0) { int adv = parseSingleArg('x', sub); if (adv) { i += adv; continue; } }
                 if (sub.find(L"$Y") == 0) { int adv = parseSingleArg('y', sub); if (adv) { i += adv; continue; } }
                 if (sub.find(L"$N") == 0) { int adv = parseSingleArg('%', sub); if (adv) { i += adv; continue; } }
+                if (sub.find(L"$M") == 0) { int adv = parseSingleArg('%', sub); if (adv) { i += adv; continue; } }
                 if (sub.find(L"$C") == 0) { int adv = parseSingleArg('%', sub); if (adv) { i += adv; continue; } }
             }
 
