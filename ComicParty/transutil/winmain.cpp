@@ -57,7 +57,7 @@ static INT_PTR CALLBACK MainDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM l
 
         case IDC_BTN_TEXT_BUILD:
             if (!ConfirmTask(hDlg, L"KoS.pak 파일이 덮어쓰기 됩니다.\n\n병합 작업을 진행하시겠습니까?")) return TRUE;
-            RunTask(hDlg, L"KoS 병합 중(약 30초 소요)", &Localization::BuildTextArchive);
+            RunTask(hDlg, L"KoS 병합 중", &Localization::BuildTextArchive);
             return TRUE;
 
         case IDC_BTN_GFX_EXTRACT:
@@ -67,7 +67,7 @@ static INT_PTR CALLBACK MainDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM l
 
         case IDC_BTN_GFX_BUILD:
             if (!ConfirmTask(hDlg, L"KoR.pak 파일이 덮어쓰기 됩니다.\n\n병합 작업을 진행하시겠습니까?")) return TRUE;
-            RunTask(hDlg, L"KoR 병합 중(약 1분 소요)", &Localization::BuildGraphicArchive);
+            RunTask(hDlg, L"KoR 병합 중", &Localization::BuildGraphicArchive);
             return TRUE;
 
         case IDCANCEL:

@@ -9,6 +9,7 @@
 #include <map>
 #include <fstream>
 #include <cmath>
+#include <future>
 
 namespace fs = std::filesystem;
 
@@ -498,6 +499,13 @@ namespace Localization {
         std::wcout << L"[Info] Graphic extraction completed." << std::endl;
     }
 
+    // 결과 구조체
+    struct GraphicProcessResult {
+        bool success;
+        std::wstring logMsg;
+        std::vector<std::pair<std::wstring, std::vector<uint8_t>>> files; // {Name, Blob} 쌍 (GRP, MSK)
+    };
+
     // [Plan 4b] Build Graphic Archive
     void BuildGraphicArchive() {
         std::wcout << L"==============================================" << std::endl;
@@ -505,146 +513,211 @@ namespace Localization {
         std::wcout << L"==============================================" << std::endl;
 
         fs::path srcDir = L"KoR";
-        if (!fs::exists(srcDir)) {
-            std::wcout << L"[Error] KoR directory not found." << std::endl;
-            return;
-        }
+        if (!fs::exists(srcDir)) return;
 
-        // Output Archive
-        std::wstring pakName = L"KoR.pak";
-        HANDLE hArchive = CreateFileW(pakName.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-        if (hArchive == INVALID_HANDLE_VALUE) {
-            std::wcout << L"[Error] Failed to create KoR.pak" << std::endl;
-            return;
-        }
-
-        // Cache for Embedded Resource PAKs (ID -> Data)
-        std::map<int, std::vector<uint8_t>> resPakCache;
-
-        // Collect PNG files
+        // 1. PNG 파일 수집
         std::vector<fs::path> pngFiles;
         for (const auto& entry : fs::directory_iterator(srcDir)) {
             if (entry.is_regular_file() && entry.path().extension() == L".png") {
                 pngFiles.push_back(entry.path());
             }
         }
+        if (pngFiles.empty()) return;
 
-        uint32_t pngCount = (uint32_t)pngFiles.size();
-        uint32_t reservedEntryCount = pngCount * 2;
+        // 2. 필요한 리소스 PAK 미리 캐싱 (Pre-load for Thread Safety)
+        // 멀티스레드에서 map에 동시 접근(삽입)하면 크래시가 나므로 미리 다 로드함.
+        std::wcout << L"[Info] Pre-loading resource PAKs..." << std::endl;
+        std::map<int, std::vector<uint8_t>> resPakCache;
+
+        for (const auto& pngPath : pngFiles) {
+            std::wstring filename = pngPath.stem().wstring();
+            size_t underscore = filename.find(L'_');
+            if (underscore == std::wstring::npos) continue;
+
+            std::wstring pakPrefix = filename.substr(0, underscore);
+            std::wstring pakFullName = pakPrefix + L".pak";
+
+            if (ResourcePakMap.find(pakFullName) != ResourcePakMap.end()) {
+                int resId = ResourcePakMap.at(pakFullName);
+                if (resPakCache.find(resId) == resPakCache.end()) {
+                    std::vector<uint8_t> buffer;
+                    if (LoadResourcePak(resId, buffer)) {
+                        resPakCache[resId] = std::move(buffer);
+                    }
+                }
+            }
+        }
+
+        // 3. 병렬 작업 실행
+        std::wcout << L"[Info] Launching parallel tasks for " << pngFiles.size() << L" graphics..." << std::endl;
+        std::vector<std::future<GraphicProcessResult>> futures;
+
+        // resPakCache는 이제 읽기 전용이므로 참조로 전달해도 안전함
+        for (const auto& pngPath : pngFiles) {
+            futures.push_back(std::async(std::launch::async, [pngPath, &resPakCache]() {
+                GraphicProcessResult res;
+                res.success = false;
+
+                std::wstring filename = pngPath.stem().wstring();
+                size_t underscore = filename.find(L'_');
+                if (underscore == std::wstring::npos) {
+                    res.logMsg = L"[Skip] Invalid format: " + filename;
+                    return res;
+                }
+
+                std::wstring pakPrefix = filename.substr(0, underscore);
+                std::wstring internalName = filename.substr(underscore + 1);
+                std::wstring pakFullName = pakPrefix + L".pak";
+
+                if (ResourcePakMap.find(pakFullName) == ResourcePakMap.end()) return res;
+                int resId = ResourcePakMap.at(pakFullName);
+
+                // 캐시에서 읽기 (Lock 불필요 - Read Only)
+                if (resPakCache.find(resId) == resPakCache.end()) {
+                    res.logMsg = L"[Error] Resource not loaded: " + pakFullName;
+                    return res;
+                }
+                const auto& pakBuffer = resPakCache.at(resId);
+
+                // C16 추출
+                std::wstring c16Name = internalName + L".c16";
+                std::vector<uint8_t> c16Data;
+                if (!ExtractFromMemoryPak(pakBuffer, c16Name, c16Data)) {
+                    res.logMsg = L"[Error] Palette missing: " + c16Name;
+                    return res;
+                }
+
+                // 변환 수행
+                std::vector<uint8_t> grpData, mskData;
+                if (!Converter::PngFileToGrp(pngPath.wstring(), c16Data, grpData, mskData)) {
+                    res.logMsg = L"[Error] Conversion failed: " + filename;
+                    return res;
+                }
+
+                res.success = true;
+                res.logMsg = L"Packed: " + filename;
+
+                // 압축 및 데이터 준비 (GRP)
+                {
+                    wchar_t p1 = pakPrefix[0];
+                    wchar_t p4 = (pakPrefix.length() >= 4) ? pakPrefix[3] : L'_';
+                    std::wstring baseName = std::wstring(1, p1) + std::wstring(1, p4) + internalName;
+
+                    // GRP 압축
+                    std::vector<uint8_t> compGrp;
+                    size_t compSize = LZSS::Compress(grpData, compGrp);
+                    std::vector<uint8_t> finalGrpBlob;
+
+                    uint32_t flag = (compSize > 0 && compSize < grpData.size()) ? 1 : 0;
+                    uint32_t dataSize = flag ? (8 + (uint32_t)compSize) : (uint32_t)grpData.size();
+                    uint32_t orgSize = (uint32_t)grpData.size();
+
+                    finalGrpBlob.resize(dataSize);
+                    if (flag) {
+                        uint32_t totalSizeWithHeader = 4 + 4 + (uint32_t)compSize; // 사실 entry.DataSize와 동일
+                        // 여기서는 Blob 자체에 Size헤더를 포함하지 않고, Write할 때 처리했던 방식과 맞춤
+                        // 하지만 병렬처리를 위해 Blob에 헤더까지 다 구워버리는게 편함.
+                        // 기존 로직: WriteFile(TotalSize), WriteFile(OrgSize), WriteFile(Body)
+                        // Blob 구조: [TotalSize(4)][OrgSize(4)][CompressedBody]
+                        memcpy(finalGrpBlob.data(), &dataSize, 4);
+                        memcpy(finalGrpBlob.data() + 4, &orgSize, 4);
+                        memcpy(finalGrpBlob.data() + 8, compGrp.data(), compSize);
+                    }
+                    else {
+                        memcpy(finalGrpBlob.data(), grpData.data(), grpData.size());
+                    }
+                    res.files.push_back({ baseName + L".grp", std::move(finalGrpBlob) });
+
+                    // MSK 압축 (있을 경우)
+                    if (!mskData.empty()) {
+                        std::vector<uint8_t> compMsk;
+                        size_t mskCompSize = LZSS::Compress(mskData, compMsk);
+                        std::vector<uint8_t> finalMskBlob;
+
+                        uint32_t mFlag = (mskCompSize > 0 && mskCompSize < mskData.size()) ? 1 : 0;
+                        uint32_t mDataSize = mFlag ? (8 + (uint32_t)mskCompSize) : (uint32_t)mskData.size();
+                        uint32_t mOrgSize = (uint32_t)mskData.size();
+
+                        finalMskBlob.resize(mDataSize);
+                        if (mFlag) {
+                            memcpy(finalMskBlob.data(), &mDataSize, 4);
+                            memcpy(finalMskBlob.data() + 4, &mOrgSize, 4);
+                            memcpy(finalMskBlob.data() + 8, compMsk.data(), mskCompSize);
+                        }
+                        else {
+                            memcpy(finalMskBlob.data(), mskData.data(), mskData.size());
+                        }
+                        res.files.push_back({ baseName + L".msk", std::move(finalMskBlob) });
+                        res.logMsg += L" (+MSK)";
+                    }
+                }
+                return res;
+                }));
+        }
+
+        // 4. 결과 쓰기 (Main Thread)
+        std::wstring pakName = L"KoR.pak";
+        HANDLE hArchive = CreateFileW(pakName.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+
+        // 헤더 예약 (MSK 고려 2배)
+        uint32_t reservedCount = (uint32_t)pngFiles.size() * 2;
         DWORD dwWritten;
-        uint32_t tempCount = 0;
-        WriteFile(hArchive, &tempCount, 4, &dwWritten, NULL);
+        uint32_t temp = 0;
+        WriteFile(hArchive, &temp, 4, &dwWritten, NULL);
 
         uint32_t tableStart = 4;
-        uint32_t dataStart = tableStart + (reservedEntryCount * sizeof(FileEntry));
+        uint32_t dataStart = tableStart + (reservedCount * sizeof(FileEntry));
         SetFilePointer(hArchive, dataStart, NULL, FILE_BEGIN);
 
         std::vector<FileEntry> table;
         int successCount = 0;
 
-        // 헬퍼: 엔트리 작성 함수 (GRP, MSK 공용)
-        auto WriteArchiveEntry = [&](const std::wstring& entryName, const std::vector<uint8_t>& data) {
-            FileEntry entry = { 0 };
-            std::string sName = Util::WideToMultiByteStr(entryName, 932);
-            strncpy(entry.Name, sName.c_str(), 15);
+        for (auto& fut : futures) {
+            auto res = fut.get();
+            if (!res.logMsg.empty()) std::wcout << res.logMsg << std::endl;
 
-            std::vector<uint8_t> compressed;
-            size_t compSize = LZSS::Compress(data, compressed);
+            if (res.success) {
+                for (const auto& file : res.files) {
+                    FileEntry entry = { 0 };
+                    std::string sName = Util::WideToMultiByteStr(file.first, 932);
+                    strncpy(entry.Name, sName.c_str(), 15);
 
-            entry.DataOffset = SetFilePointer(hArchive, 0, NULL, FILE_CURRENT);
+                    const auto& blob = file.second;
+                    // Blob 내부에 이미 [Size][OrgSize] 헤더가 포함되어 있는지 확인해야 함
+                    // 위 압축 로직에서 Flag 체크하여 0이면 Raw, 1이면 Compressed Header 포함시킴.
+                    // Raw인 경우: Blob Size == Original Size
+                    // Comp인 경우: Blob Size == 8 + Comp Body
 
-            if (compSize > 0 && compSize < data.size()) {
-                entry.Flags = 1; // Compressed
-                uint32_t totalSize = 4 + 4 + (uint32_t)compressed.size();
-                uint32_t orgSize = (uint32_t)data.size();
-                entry.DataSize = totalSize;
-                WriteFile(hArchive, &totalSize, 4, &dwWritten, NULL);
-                WriteFile(hArchive, &orgSize, 4, &dwWritten, NULL);
-                WriteFile(hArchive, compressed.data(), (DWORD)compressed.size(), &dwWritten, NULL);
-            }
-            else {
-                entry.Flags = 0; // Raw
-                entry.DataSize = (uint32_t)data.size();
-                WriteFile(hArchive, data.data(), (DWORD)data.size(), &dwWritten, NULL);
-            }
-            table.push_back(entry);
-            successCount++;
-        };
+                    // 압축 여부 판단 (LZSS 헤더 크기 체크 등)
+                    // 간단히: Blob의 첫 4바이트(TotalSize)가 Blob크기와 같으면 Compressed라고 가정
+                    // 하지만 Raw 데이터가 우연히 그럴 수 있음. 
+                    // 더 명확히 하기 위해 구조체에 flag를 전달하거나, 여기서 다시 판단.
+                    // 위 람다에서 Blob을 만들 때:
+                    // Compressed: [Total(4)][Org(4)][Body]
+                    // Raw: [Body]
 
-        for (const auto& pngPath : pngFiles) {
-            // Parse Filename: [PakName]_[InternalName].png
-            // Example: Back_bg00.png -> Pak: Back.pak, File: bg00
-            std::wstring filename = pngPath.stem().wstring();
-            std::transform(filename.begin(), filename.end(), filename.begin(), ::tolower);
-            size_t underscore = filename.find(L'_');
+                    // 명확성을 위해 람다에서 flag를 pair로 같이 넘기는게 좋으나, 
+                    // 여기서는 Blob 앞 4바이트(Size) == Blob Size 이면 압축된걸로 간주 (LZSS 헤더 특징)
+                    bool isCompressed = false;
+                    if (blob.size() > 8) {
+                        uint32_t checkSize = *(uint32_t*)blob.data();
+                        if (checkSize == blob.size()) isCompressed = true;
+                    }
 
-            if (underscore == std::wstring::npos) {
-                std::wcout << L"[Skip] Invalid format: " << filename << std::endl;
-                continue; // Cannot determine source PAK
-            }
+                    entry.Flags = isCompressed ? 1 : 0;
+                    entry.DataSize = (uint32_t)blob.size();
+                    entry.DataOffset = SetFilePointer(hArchive, 0, NULL, FILE_CURRENT);
 
-            std::wstring pakPrefix = filename.substr(0, underscore);
-            std::wstring internalName = filename.substr(underscore + 1);
-            std::wstring pakFullName = pakPrefix + L".pak";
-
-            // Find Resource ID
-            if (ResourcePakMap.find(pakFullName) == ResourcePakMap.end()) {
-                std::wcout << L"[Skip] Unknown PAK prefix: " << pakPrefix << std::endl;
-                continue;
-            }
-            int resId = ResourcePakMap.at(pakFullName);
-
-            // Load Resource PAK if not cached
-            if (resPakCache.find(resId) == resPakCache.end()) {
-                std::vector<uint8_t> buffer;
-                if (LoadResourcePak(resId, buffer)) {
-                    resPakCache[resId] = std::move(buffer);
-                }
-                else {
-                    std::wcout << L"[Error] Failed to load resource for " << pakFullName << std::endl;
-                    continue;
+                    WriteFile(hArchive, blob.data(), (DWORD)blob.size(), &dwWritten, NULL);
+                    table.push_back(entry);
+                    successCount++;
                 }
             }
-
-            // Extract C16 from Resource PAK
-            std::wstring c16Name = internalName + L".c16";
-            std::vector<uint8_t> c16Data;
-            if (!ExtractFromMemoryPak(resPakCache[resId], c16Name, c16Data)) {
-                std::wcout << L"[Error] Palette not found in resource: " << c16Name << std::endl;
-                // Cannot proceed without palette meta
-                continue;
-            }
-
-            // Convert PNG -> GRP
-            std::vector<uint8_t> grpData;
-            std::vector<uint8_t> mskData; // MSK 데이터 버퍼
-            if (!Converter::PngFileToGrp(pngPath.wstring(), c16Data, grpData, mskData)) {
-                std::wcout << L"[Error] Conversion failed: " << filename << std::endl;
-                continue;
-            }
-
-            // Construct Archive Filename
-            // Rule: [PakName1stChar][PakName4thChar][InternalName].grp
-            // Example: Back -> 'B', 'k' -> Bkbg00.grp
-            wchar_t p1 = pakPrefix.length() >= 1 ? pakPrefix[0] : L'_';
-            wchar_t p4 = pakPrefix.length() >= 4 ? pakPrefix[3] : L'_';
-            std::wstring baseName = std::wstring(1, p1) + std::wstring(1, p4) + internalName;
-
-            // 1. GRP 아카이빙
-            WriteArchiveEntry(baseName + L".grp", grpData);
-            std::wcout << L"Packed: " << filename << L" -> " << baseName + L".grp";
-
-            // 2. MSK 아카이빙 (데이터가 있으면)
-            if (!mskData.empty()) {
-                WriteArchiveEntry(baseName + L".msk", mskData);
-                std::wcout << L" (+msk)";
-            }
-            std::wcout << std::endl;
         }
 
-        // 최종 헤더 및 테이블 업데이트
-        SetFilePointer(hArchive, 0, NULL, FILE_BEGIN);
+        // 헤더 업데이트
         uint32_t finalCount = (uint32_t)table.size();
+        SetFilePointer(hArchive, 0, NULL, FILE_BEGIN);
         WriteFile(hArchive, &finalCount, 4, &dwWritten, NULL);
 
         SetFilePointer(hArchive, tableStart, NULL, FILE_BEGIN);

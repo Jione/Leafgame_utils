@@ -1,11 +1,65 @@
-#define NOMINMAX
+﻿#define NOMINMAX
 #include "EventParse.h"
 #include "EventFile.h"
+#include "Util.h"
 #include <fstream>
 #include <iostream>
 #include <filesystem>
 
 namespace Event {
+
+    namespace kr {
+        const wchar_t* RawCharaNames[] = {
+            L"주인공", L"미즈키", L"미나미", L"유우", L"에이미", L"아야", L"아사히", L"레이코",
+            L"치사", L"이쿠미", L"타이시", L"수수께끼 남자", L"운송업자", L"편집장", L"오타쿠", L"삼인조",
+            L"스태프", L"소녀 목소리", L"소녀 목소리 Ａ", L"소녀 목소리 Ｂ", L"소녀 목소리 Ｃ", L"손님", L"전화", L"？",
+            L"종업원", L"아이", L"아저씨", L"누님", L"어머님", L"소녀", L"점원", L"사회자",
+            L"해설자", L"판매원", L"웨이트리스", L"여관 종업원", L"모모", L"남자 목소리", L"마히루", L"헤모헤모",
+            L"리포터", L"여자 목소리", L"코스플레이어", L"삼인조", L"미호", L"마유", L"유카", L"아빠",
+            L"엄마", L"여자", L"역무원", L"선배", L"인쇄소 직원", L"방송", L"아버지", L"어머니"
+        };
+        const wchar_t* NarrString = L"나레이션";
+        const wchar_t* SelectString = L"선택지";
+        const int RawCharaCount = sizeof(RawCharaNames) / sizeof(RawCharaNames[0]);
+    }
+
+    namespace jp {
+        const wchar_t* RawCharaNames[] = {
+            L"主人公", L"瑞希", L"南", L"由宇", L"詠美", L"彩", L"あさひ", L"玲子",
+            L"千紗", L"郁美", L"大志", L"謎の男", L"運送屋さん", L"編集長", L"おたく", L"三人組",
+            L"スタッフ", L"女の子の声", L"女の子の声Ａ", L"女の子の声Ｂ", L"女の子の声Ｃ", L"客", L"電話", L"？",
+            L"従業員", L"子供", L"おっちゃん", L"ねえちゃん", L"母親", L"女の子", L"店員", L"司会",
+            L"解説", L"売り子", L"ウェイトレス", L"仲居", L"モモ", L"男の声", L"まひる", L"へもへも",
+            L"レポーター", L"女の人の声", L"コスプレイヤ", L"三人組", L"美穂", L"まゆ", L"夕香", L"パパ",
+            L"ママ", L"女の人", L"駅員", L"先輩", L"印刷所の子", L"放送", L"お父さん", L"お母さん"
+        };
+        const wchar_t* NarrString = L"ナレーション";
+        const wchar_t* SelectString = L"選択肢";
+        const int RawCharaCount = sizeof(RawCharaNames) / sizeof(RawCharaNames[0]);
+    }
+
+    const wchar_t* GetIdName(int id) {
+        if (id >= 0 && id < jp::RawCharaCount) {
+            return jp::RawCharaNames[id];
+        }
+        else if (id == -1) {
+            return jp::NarrString;
+        }
+        else if (id == -2) {
+            return jp::SelectString;
+        }
+        return L"";
+    }
+
+    std::string GetUtf8Name(int id) {
+        if (id >= 0 && id < kr::RawCharaCount) {
+            return Util::WideToMultiByteStr(kr::RawCharaNames[id], CP_UTF8);
+        }
+        else if (id == -2) {
+            return Util::WideToMultiByteStr(kr::SelectString, CP_UTF8);
+        }
+        return "";
+    }
 
     typedef bool (*IsTargetOpcodeFn)(void* user, uint32_t opcode);
 
@@ -201,9 +255,9 @@ namespace Event {
 
     static std::wstring ResolveEventPathFromInput(const std::wstring& inputPath) {
         // Accept:
-        //  - "...eve.dat"  -> �״��
+        //  - "...eve.dat"  -> 그대로
         //  - "...mes.mes"  -> "...eve.dat"
-        //  - otherwise     -> �״�� (caller can pass eve directly)
+        //  - otherwise     -> 그대로 (caller can pass eve directly)
         if (EndsWithNoCase(inputPath, L"eve.dat")) {
             return inputPath;
         }
@@ -238,9 +292,9 @@ namespace Event {
     static void UpdateByPriority(std::vector<int>& table, uint32_t msgId, int newValue) {
         EnsureSize(table, msgId, -1);
         const int oldValue = table[msgId];
-        if (PriorityOfValue(newValue) >= PriorityOfValue(oldValue)) {
+        //if (PriorityOfValue(newValue) >= PriorityOfValue(oldValue)) {
             table[msgId] = newValue;
-        }
+        //}
     }
 
     struct EventCharaContext {

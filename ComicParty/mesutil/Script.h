@@ -6,7 +6,7 @@
 namespace Script {
 
     // MES -> XLSX
-    bool ParseMes(LPWSTR lpTargetFile);
+    bool ParseMes(LPWSTR lpTargetFile, bool exportMode);
 
     // XLSX -> MES
     bool ApplyTransTo(LPWSTR lpTargetFile);

@@ -13,6 +13,7 @@ void PrintTitle() {
 int main() {
     while (true) {
         PrintTitle();
+        std::cout << "0. MES -> TXT (Export)" << std::endl;
         std::cout << "1. MES -> XLSX (Export)" << std::endl;
         std::cout << "2. XLSX -> MES (Import)" << std::endl;
         std::cout << "Q. Quit" << std::endl;
@@ -24,9 +25,10 @@ int main() {
 
         if (input == 'q' || input == 'Q') break;
 
-        if (input != '1' && input != '2') continue;
+        if (input != '1' && input != '2' && input != '0') continue;
 
-        bool isExport = (input == '1');
+        int runMode = input - '0';
+        bool isExport = !(runMode == 2);
         std::vector<std::wstring> files;
 
         if (isExport) {
@@ -46,7 +48,7 @@ int main() {
 
         for (const auto& file : files) {
             if (isExport) {
-                Script::ParseMes((LPWSTR)file.c_str());
+                Script::ParseMes((LPWSTR)file.c_str(), runMode ? true : false);
             }
             else {
                 Script::ApplyTransTo((LPWSTR)file.c_str());

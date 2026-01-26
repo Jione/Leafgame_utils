@@ -1079,7 +1079,7 @@ static char* strings_46F3A8[] = {
     unk_46F3A8, unk_46F3D8, unk_46F430, unk_46F498, unk_46F4E8, unk_46F544, unk_46F594, unk_46F5CC,
     unk_46F62C, unk_46F668, unk_46F6D4
 };
-static char* def_4234F2[] = { unk_46F3A8 };
+static char* def_4234F4[] = { unk_46F3A8 };
 static char* def_42351F[] = { unk_46F3D8 };
 static char* def_42354A[] = { unk_46F430 };
 static char* def_42428E[] = { unk_46F498 };
@@ -2301,7 +2301,7 @@ static void ApplyPatches() {
     updateRef(441524);
     updateRef(44153E);
     // 46F3A8
-    updateRef(4234F2);
+    updateRef(4234F4);
     updateRef(42351F);
     updateRef(42354A);
     updateRef(42428E);

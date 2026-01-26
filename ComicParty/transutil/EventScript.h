@@ -39,7 +39,8 @@ namespace EventScript {
 
         // 캐릭터 ID에 해당하는 이름 문자열 반환 (CP949)
         // 범위 밖이거나 알 수 없는 경우 빈 문자열 반환
-        static const char* GetCharaName(int id);
+        static const wchar_t* GetIdName(int id);
+        static std::string Script::GetUtf8Name(int id);
 
     private:
         bool ParseAndValidate();

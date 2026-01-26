@@ -32,7 +32,7 @@ namespace Script {
         std::vector<uint32_t> vLen;
     };
 
-    bool ParseMes(LPWSTR lpTargetFile) {
+    bool ParseMes(LPWSTR lpTargetFile, bool exportMode) {
         std::wstring filePath = lpTargetFile;
         std::ifstream file(filePath, std::ios::binary);
         if (!file.is_open()) {
@@ -68,75 +68,110 @@ namespace Script {
 
         std::vector<int> vCharId;
         vCharId.reserve(header.uCount);
-        for (int i = 0; i < header.uCount; ++i) {
-            vCharId[i] = -1;
-        }
         Event::ParseCharaIDTable(lpTargetFile, vCharId);
 
-        // 2. Create Excel
-        std::wstring xlsxPath = filePath;
-        xlsxPath.replace(xlsxPath.find(L".mes"), 4, L".xlsx");
-        std::string xlsxPathStr = Util::WideToMultiByteStr(xlsxPath, CP_UTF8);
+        if (exportMode) {
+            // 2-1. Create Excel
+            std::wstring xlsxPath = filePath;
+            xlsxPath.replace(xlsxPath.find(L".mes"), 4, L".xlsx");
+            std::string xlsxPathStr = Util::WideToMultiByteStr(xlsxPath, CP_UTF8);
 
-        XLDocument doc;
-        doc.create(xlsxPathStr);
-        auto wks = doc.workbook().worksheet("Sheet1");
+            XLDocument doc;
+            doc.create(xlsxPathStr);
+            auto wks = doc.workbook().worksheet("Sheet1");
 
-        // Headers
-        wks.cell("A1").value() = "Index";
-        wks.cell("B1").value() = "Charactor";
-        wks.cell("C1").value() = "Voice";
-        wks.cell("D1").value() = "String";
-        wks.cell("E1").value() = "Translate";
+            // Headers
+            wks.cell("A1").value() = "Index";
+            wks.cell("B1").value() = "Charactor";
+            wks.cell("C1").value() = "Voice";
+            wks.cell("D1").value() = "String";
+            wks.cell("E1").value() = "Translate";
 
-        // 3. Process Data
-        for (uint32_t i = 0; i < header.uCount; ++i) {
-            uint32_t sOffset = header.scrPos[i];
-            uint32_t sLen = header.scrLen[i];
+            // 3-1. Process Data
+            for (uint32_t i = 0; i < header.uCount; ++i) {
+                uint32_t sOffset = header.scrPos[i];
+                uint32_t sLen = header.scrLen[i];
 
-            // Voice follows string in blob logical structure, but blob is linear
-            // The blob structure described is { scr1, v1, scr2, v2 ... }
-            // so vOffset is sOffset + sLen
-            uint32_t vOffset = sOffset + sLen;
-            uint32_t vLen = header.vLen[i];
+                // Voice follows string in blob logical structure, but blob is linear
+                // The blob structure described is { scr1, v1, scr2, v2 ... }
+                // so vOffset is sOffset + sLen
+                uint32_t vOffset = sOffset + sLen;
+                uint32_t vLen = header.vLen[i];
 
-            if (sOffset >= stringBlob.size()) continue;
+                if (sOffset >= stringBlob.size()) continue;
 
-            // --- Extract Charactor ---
-            std::string charStr = "";
-            if (vCharId[i] == -2) {
-                charStr = Util::MultiByteToUtf8("¼±ÅÃÁö", 949);
+                // --- Extract Charactor ---
+                std::string charStr = Event::GetUtf8Name(vCharId[i]);
+
+                // --- Extract Voice (ASCII) ---
+                std::string voiceStr;
+                if (vLen > 0 && vOffset + vLen <= stringBlob.size()) {
+                    // vLen includes null.
+                    voiceStr.assign(&stringBlob[vOffset], vLen - 1);
+                }
+
+                // --- Extract & Convert Main String ---
+                // We use sLen - 1 to exclude the null terminator from processing
+                uint32_t processLen = (sLen > 0) ? sLen - 1 : 0;
+                std::string finalStr;
+                if (processLen > 0 && sOffset + processLen <= stringBlob.size()) {
+                    finalStr = Util::MesBytesToUtf8(stringBlob, sOffset, processLen);
+                }
+
+                // Write Row
+                int row = i + 2;
+                wks.cell(row, 1).value() = (int)(i + 1);
+                wks.cell(row, 2).value() = charStr;
+                wks.cell(row, 3).value() = voiceStr;
+                wks.cell(row, 4).value() = finalStr;
+                wks.cell(row, 5).value() = "";
             }
-            else if ((vCharId[i] >= 0) && (vCharId[i] < 0x38)) {
-                charStr = Util::MultiByteToUtf8(CharaName[(vCharId[i])], 949);
-            }
 
-            // --- Extract Voice (ASCII) ---
-            std::string voiceStr;
-            if (vLen > 0 && vOffset + vLen <= stringBlob.size()) {
-                // vLen includes null.
-                voiceStr.assign(&stringBlob[vOffset], vLen - 1);
-            }
-
-            // --- Extract & Convert Main String ---
-            // We use sLen - 1 to exclude the null terminator from processing
-            uint32_t processLen = (sLen > 0) ? sLen - 1 : 0;
-            std::string finalStr;
-            if (processLen > 0 && sOffset + processLen <= stringBlob.size()) {
-                finalStr = Util::MesBytesToUtf8(stringBlob, sOffset, processLen);
-            }
-
-            // Write Row
-            int row = i + 2;
-            wks.cell(row, 1).value() = (int)(i + 1);
-            wks.cell(row, 2).value() = charStr;
-            wks.cell(row, 3).value() = voiceStr;
-            wks.cell(row, 4).value() = finalStr;
-            wks.cell(row, 5).value() = "";
+            doc.save();
+            std::wcout << L"Exported to: " << xlsxPath << std::endl;
         }
+        else {
+            // 2-2. Create txt
+            std::wstring txtPath = filePath;
+            txtPath.replace(txtPath.find(L".mes"), 4, L".txt");
+            std::string txtPathStr = Util::WideToMultiByteStr(txtPath, CP_UTF8);
+            std::ofstream file(txtPath, std::ios::binary);
 
-        doc.save();
-        std::wcout << L"Exported to: " << xlsxPath << std::endl;
+            // 3-2. Process Data
+            for (uint32_t i = 0; i < header.uCount; ++i) {
+                uint32_t sOffset = header.scrPos[i];
+                uint32_t sLen = header.scrLen[i];
+
+                // Voice follows string in blob logical structure, but blob is linear
+                // The blob structure described is { scr1, v1, scr2, v2 ... }
+                // so vOffset is sOffset + sLen
+                uint32_t vOffset = sOffset + sLen;
+                uint32_t vLen = header.vLen[i];
+
+                if (sOffset >= stringBlob.size()) continue;
+
+                // --- Extract Charactor 
+                std::string charStr = Util::WideToMultiByteStr(Event::GetIdName(vCharId[i]), CP_UTF8);
+
+                // --- Extract Voice (ASCII) ---
+                std::string voiceStr;
+                if (vLen > 0 && vOffset + vLen <= stringBlob.size()) {
+                    // vLen includes null.
+                    voiceStr.assign(&stringBlob[vOffset], vLen - 1);
+                }
+
+                // --- Extract & Convert Main String ---
+                // We use sLen - 1 to exclude the null terminator from processing
+                uint32_t processLen = (sLen > 0) ? sLen - 1 : 0;
+                std::string finalStr;
+                if (processLen > 0 && sOffset + processLen <= stringBlob.size()) {
+                    finalStr = Util::MesBytesToUtf8(stringBlob, sOffset, processLen);
+                }
+
+                file << charStr << "\r\n" << finalStr << "\r\n";
+            }
+            std::wcout << L"Exported to: " << txtPath << std::endl;
+        }
         return true;
     }
 

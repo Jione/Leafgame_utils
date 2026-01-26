@@ -1,5 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "EventScript.h"
+#include "Util.h"
 #include <new>
 #include <cstring>
 #include <iostream>
@@ -11,21 +12,39 @@ namespace EventScript {
     // 1. Character Names Data (Internal)
     // ------------------------------------------------------------------------
     namespace {
-        const char* RawCharaNames[] = {
-            "주인공", "미즈키", "미나미", "유우", "에이미", "아야", "아사히", "레이코",
-            "치사", "이쿠미", "타이시", "수수께끼 남자", "운송업자", "편집장", "오타쿠", "삼인조",
-            "스태프", "소녀 목소리", "소녀 목소리 Ａ", "소녀 목소리 Ｂ", "소녀 목소리 Ｃ", "손님", "전화", "？",
-            "종업원", "아이", "아저씨", "누님", "어머님", "소녀", "점원", "사회자",
-            "해설자", "판매원", "웨이트리스", "여관 종업원", "모모", "남자 목소리", "마히루", "헤모헤모",
-            "리포터", "여자 목소리", "코스플레이어", "삼인조", "미호", "마유", "유카", "아빠",
-            "엄마", "여자", "역무원", "선배", "인쇄소 직원", "방송", "아버지", "어머니"
+        const wchar_t* RawCharaNames[] = {
+            L"주인공", L"미즈키", L"미나미", L"유우", L"에이미", L"아야", L"아사히", L"레이코",
+            L"치사", L"이쿠미", L"타이시", L"수수께끼 남자", L"운송업자", L"편집장", L"오타쿠", L"삼인조",
+            L"스태프", L"소녀 목소리", L"소녀 목소리 Ａ", L"소녀 목소리 Ｂ", L"소녀 목소리 Ｃ", L"손님", L"전화", L"？",
+            L"종업원", L"아이", L"아저씨", L"누님", L"어머님", L"소녀", L"점원", L"사회자",
+            L"해설자", L"판매원", L"웨이트리스", L"여관 종업원", L"모모", L"남자 목소리", L"마히루", L"헤모헤모",
+            L"리포터", L"여자 목소리", L"코스플레이어", L"삼인조", L"미호", L"마유", L"유카", L"아빠",
+            L"엄마", L"여자", L"역무원", L"선배", L"인쇄소 직원", L"방송", L"아버지", L"어머니"
         };
+        const wchar_t* NarrString = L"나레이션";
+        const wchar_t* SelectString = L"선택지";
         const int RawCharaCount = sizeof(RawCharaNames) / sizeof(RawCharaNames[0]);
     }
 
-    const char* Script::GetCharaName(int id) {
+    const wchar_t* Script::GetIdName(int id) {
         if (id >= 0 && id < RawCharaCount) {
             return RawCharaNames[id];
+        }
+        else if (id == -1) {
+            return NarrString;
+        }
+        else if (id == -2) {
+            return SelectString;
+        }
+        return L"";
+    }
+
+    std::string Script::GetUtf8Name(int id) {
+        if (id >= 0 && id < RawCharaCount) {
+            return Util::WideToMultiByteStr(RawCharaNames[id], CP_UTF8);
+        }
+        else if (id == -2) {
+            return Util::WideToMultiByteStr(SelectString, CP_UTF8);
         }
         return "";
     }

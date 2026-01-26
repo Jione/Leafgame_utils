@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <map>
 #include <fstream>
+#include <future>
 
 // OpenXLSX 라이브러리 링크 (빌드 환경에 맞춰 조정)
 #ifdef _AMD64_
@@ -164,17 +165,9 @@ namespace Localization {
                     uint32_t vLen = header.vLen[i];
 
                     // --- Extract Character Name ---
-                    std::string charStr = "";
+                    // EventScript를 통해 이름 획득
                     int cid = (i < vCharId.size()) ? vCharId[i] : -1;
-
-                    if (cid == -2) {
-                        charStr = Util::MultiByteToUtf8("선택지", 949);
-                    }
-                    else if (cid >= 0) {
-                        // EventScript를 통해 이름 획득
-                        const char* rawName = EventScript::Script::GetCharaName(cid);
-                        charStr = Util::MultiByteToUtf8(rawName, 949);
-                    }
+                    std::string charStr = EventScript::Script::GetUtf8Name(cid);
 
                     // --- Extract Voice ---
                     std::string voiceStr;
@@ -427,151 +420,187 @@ namespace Localization {
         CloseHandle(hFile);
         std::wcout << L"[Info] Extracted " << count << L" text files to KoS folder." << std::endl;
     }
-    
+
+    // 병렬 처리 결과를 담을 구조체
+    struct ProcessResult {
+        bool success;
+        std::wstring fileName;
+        FileEntry entry;
+        std::vector<uint8_t> dataBlob; // 압축된 데이터 (또는 Raw)
+    };
+
     // Building Text Archive
     void BuildTextArchive() {
-        fs::path kosDir = L"KoS";
-        if (!fs::exists(kosDir)) {
-            std::wcout << L"[Error] KoS directory not found." << std::endl;
-            return;
-        }
+        std::wcout << L"==============================================" << std::endl;
+        std::wcout << L"       Building Patch Archive (KoS.pak)       " << std::endl;
+        std::wcout << L"==============================================" << std::endl;
 
-        // 1. 내장 리소스(PAK) 로드
+        fs::path kosDir = L"KoS";
+        if (!fs::exists(kosDir)) return;
+
+        // 1. 내장 리소스 로드 (메인 스레드에서 미리 로드하여 읽기 전용으로 만듦)
         std::vector<uint8_t> embeddedPakData;
         bool hasEmbeddedPak = LoadEmbeddedPakResource(embeddedPakData);
-        if (hasEmbeddedPak) {
-            std::wcout << L"[Info] Embedded resource PAK loaded (" << embeddedPakData.size() << L" bytes)." << std::endl;
-        }
-        else {
-            std::wcout << L"[Warning] Failed to load embedded resource PAK." << std::endl;
-        }
 
-        // 2. 대상 파일 수집
+        // 2. 파일 목록 수집
         std::vector<fs::path> targetFiles;
         for (const auto& entry : fs::directory_iterator(kosDir)) {
             if (entry.is_regular_file() && entry.path().extension() == L".xlsx") {
-                for (int i = 0; i < (sizeof(eventFileName) / sizeof(eventFileName[0])); ++i) {
-                    if (entry.path().stem() == eventFileName[i]) {
-                        targetFiles.push_back(entry.path());
-                        break;
+                targetFiles.push_back(entry.path());
+            }
+        }
+
+        if (targetFiles.empty()) return;
+
+        // 3. 병렬 작업 생성 (Task Launch)
+        std::wcout << L"[Info] Launching parallel tasks for " << targetFiles.size() << L" files..." << std::endl;
+        std::vector<std::future<std::vector<ProcessResult>>> futures;
+
+        for (const auto& xlsxPath : targetFiles) {
+            // 각 파일 처리를 비동기로 실행
+            futures.push_back(std::async(std::launch::async, [xlsxPath, hasEmbeddedPak, &embeddedPakData]() {
+                std::vector<ProcessResult> results;
+                std::wstring stem = xlsxPath.stem().wstring();
+
+                // A. 내장 DAT 파일 처리 (존재 시)
+                if (hasEmbeddedPak) {
+                    std::wstring datName = stem + L"eve.dat";
+                    std::vector<uint8_t> datData;
+                    if (ExtractFromEmbeddedPak(embeddedPakData, datName, datData)) {
+                        ProcessResult res;
+                        res.success = true;
+                        res.fileName = datName;
+
+                        FileEntry entry = { 0 };
+                        std::string sName = Util::WideToMultiByteStr(datName, 932);
+                        strncpy(entry.Name, sName.c_str(), 15);
+
+                        // 압축 수행
+                        std::vector<uint8_t> compressed;
+                        size_t compSize = LZSS::Compress(datData, compressed);
+
+                        if (compSize > 0 && compSize < datData.size()) {
+                            res.entry = entry;
+                            res.entry.Flags = 1;
+                            res.entry.DataSize = 4 + 4 + (uint32_t)compressed.size(); // Total Size
+
+                            // 포맷 조립: [TotalSize][OrgSize][Body]
+                            uint32_t orgSize = (uint32_t)datData.size();
+                            res.dataBlob.resize(res.entry.DataSize);
+                            memcpy(res.dataBlob.data(), &res.entry.DataSize, 4);
+                            memcpy(res.dataBlob.data() + 4, &orgSize, 4);
+                            memcpy(res.dataBlob.data() + 8, compressed.data(), compressed.size());
+                        }
+                        else {
+                            res.entry = entry;
+                            res.entry.Flags = 0;
+                            res.entry.DataSize = (uint32_t)datData.size();
+                            res.dataBlob = std::move(datData);
+                        }
+                        results.push_back(std::move(res));
                     }
                 }
-            }
-        }
 
-        if (targetFiles.empty()) {
-            std::wcout << L"No .xlsx files found in KoS." << std::endl;
-            return;
-        }
+                // B. XLSX -> MES 변환
+                std::wstring mesName = stem + L"mes.mes";
+                std::vector<uint8_t> mesData;
+                ProcessResult mesRes;
+                mesRes.fileName = mesName;
 
-        // 3. 총 엔트리 수 계산 (xlsx 대응 파일 + 내장 dat 파일)
-        uint32_t totalEntryCount = 0;
-        for (const auto& xlsxPath : targetFiles) {
-            totalEntryCount++; // .mes 파일
+                if (Converter::XlsxToMes(xlsxPath.wstring(), mesData)) {
+                    mesRes.success = true;
+                    FileEntry entry = { 0 };
+                    std::string sName = Util::WideToMultiByteStr(mesName, 932);
+                    strncpy(entry.Name, sName.c_str(), 15);
 
-            // 내장된 dat 파일이 있는지 미리 확인 (엔트리 수 확보용)
-            if (hasEmbeddedPak) {
-                std::wstring stem = xlsxPath.stem().wstring();
-                std::wstring datName = stem + L"eve.dat";
+                    // 압축 수행
+                    std::vector<uint8_t> compressed;
+                    size_t compSize = LZSS::Compress(mesData, compressed);
 
-                // 실제 데이터를 추출해보지는 않고, 단순히 존재 여부만 체크해도 되지만
-                // 여기서는 간단히 하기 위해 추출 시도 함수를 재사용하거나, 
-                // 단순히 무조건 체크한다고 가정하고 루프 안에서 처리.
-                // *정확성을 위해* 검색만 하는 함수를 분리하는 것이 좋으나, 
-                // 여기서는 `ExtractFromEmbeddedPak` 호출 시 데이터가 나오면 카운트 증가.
-                std::vector<uint8_t> dummy;
-                if (ExtractFromEmbeddedPak(embeddedPakData, datName, dummy)) {
-                    totalEntryCount++;
+                    if (compSize > 0 && compSize < mesData.size()) {
+                        mesRes.entry = entry;
+                        mesRes.entry.Flags = 1;
+                        mesRes.entry.DataSize = 4 + 4 + (uint32_t)compressed.size();
+
+                        uint32_t orgSize = (uint32_t)mesData.size();
+                        mesRes.dataBlob.resize(mesRes.entry.DataSize);
+                        memcpy(mesRes.dataBlob.data(), &mesRes.entry.DataSize, 4);
+                        memcpy(mesRes.dataBlob.data() + 4, &orgSize, 4);
+                        memcpy(mesRes.dataBlob.data() + 8, compressed.data(), compressed.size());
+                    }
+                    else {
+                        mesRes.entry = entry;
+                        mesRes.entry.Flags = 0;
+                        mesRes.entry.DataSize = (uint32_t)mesData.size();
+                        mesRes.dataBlob = std::move(mesData);
+                    }
                 }
-            }
+                else {
+                    // 실패 시 더미 엔트리
+                    mesRes.success = false;
+                    FileEntry entry = { 0 };
+                    std::string sName = Util::WideToMultiByteStr(mesName, 932);
+                    strncpy(entry.Name, sName.c_str(), 15);
+                    mesRes.entry = entry;
+                    mesRes.entry.Flags = 0;
+                    mesRes.entry.DataSize = 0;
+                }
+                results.push_back(std::move(mesRes));
+
+                return results;
+                }));
         }
 
-        // 4. 아카이브 생성
+        // 4. 결과 수집 및 파일 쓰기 (Main Thread)
         std::wstring pakName = L"KoS.pak";
         HANDLE hArchive = CreateFileW(pakName.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-        if (hArchive == INVALID_HANDLE_VALUE) {
-            std::wcout << L"[Error] Failed to create KoS.pak" << std::endl;
-            return;
-        }
+        if (hArchive == INVALID_HANDLE_VALUE) return;
 
+        // 헤더 공간 예약 (나중에 업데이트)
+        // 최대 예상 개수: 파일 수 * 2 (dat + mes)
+        uint32_t estimatedCount = (uint32_t)targetFiles.size() * 2;
         DWORD dwWritten;
-        WriteFile(hArchive, &totalEntryCount, 4, &dwWritten, NULL);
+        WriteFile(hArchive, &estimatedCount, 4, &dwWritten, NULL);
 
         uint32_t tableStart = 4;
-        uint32_t dataStart = tableStart + (totalEntryCount * sizeof(FileEntry));
+        uint32_t dataStart = tableStart + (estimatedCount * sizeof(FileEntry));
         SetFilePointer(hArchive, dataStart, NULL, FILE_BEGIN);
 
-        std::vector<FileEntry> table;
+        std::vector<FileEntry> finalTable;
         int successCount = 0;
 
-        auto WriteEntry = [&](const std::wstring& pakFileName, const std::vector<uint8_t>& rawData) {
-            FileEntry entry = { 0 };
-            std::string sjisName = Util::WideToMultiByteStr(pakFileName, 932);
-            strncpy(entry.Name, sjisName.c_str(), 15);
+        for (auto& fut : futures) {
+            // 작업 완료 대기
+            auto batchResults = fut.get();
 
-            std::vector<uint8_t> compressedData;
-            size_t compSize = LZSS::Compress(rawData, compressedData);
-
-            entry.DataOffset = SetFilePointer(hArchive, 0, NULL, FILE_CURRENT);
-
-            if (compSize > 0 && compSize < rawData.size()) {
-                entry.Flags = 1;
-                uint32_t totalBlobSize = 4 + 4 + (uint32_t)compressedData.size();
-                uint32_t orgSize = (uint32_t)rawData.size();
-                entry.DataSize = totalBlobSize;
-                WriteFile(hArchive, &totalBlobSize, 4, &dwWritten, NULL);
-                WriteFile(hArchive, &orgSize, 4, &dwWritten, NULL);
-                WriteFile(hArchive, compressedData.data(), (DWORD)compressedData.size(), &dwWritten, NULL);
-            }
-            else {
-                entry.Flags = 0;
-                entry.DataSize = (uint32_t)rawData.size();
-                WriteFile(hArchive, rawData.data(), (DWORD)rawData.size(), &dwWritten, NULL);
-            }
-            table.push_back(entry);
-            successCount++;
-            };
-
-        // 5. 파일 처리
-        for (const auto& xlsxPath : targetFiles) {
-            std::wstring stem = xlsxPath.stem().wstring();
-            std::wcout << L"Processing: " << stem << L"..." << std::endl;
-
-            // A. 내장 DAT 파일 처리
-            if (hasEmbeddedPak) {
-                std::wstring datName = stem + L"eve.dat";
-                std::vector<uint8_t> datData;
-                if (ExtractFromEmbeddedPak(embeddedPakData, datName, datData)) {
-                    std::wcout << L"  [+] Injecting Resource: " << datName << std::endl;
-                    WriteEntry(datName, datData);
+            for (auto& res : batchResults) {
+                if (res.success) {
+                    std::wcout << L"Packed: " << res.fileName << std::endl;
                 }
-            }
+                else {
+                    std::wcout << L"[Fail] " << res.fileName << std::endl;
+                }
 
-            // B. XLSX -> MES 변환
-            std::wstring mesName = stem + L"mes.mes";
-            std::wcout << L"  [+] Converting: " << xlsxPath.filename() << L" -> " << mesName << std::endl;
+                // 오프셋 설정 및 데이터 쓰기
+                res.entry.DataOffset = SetFilePointer(hArchive, 0, NULL, FILE_CURRENT);
+                if (!res.dataBlob.empty()) {
+                    WriteFile(hArchive, res.dataBlob.data(), (DWORD)res.dataBlob.size(), &dwWritten, NULL);
+                }
 
-            std::vector<uint8_t> mesData;
-            if (Converter::XlsxToMes(xlsxPath.wstring(), mesData)) {
-                WriteEntry(mesName, mesData);
-            }
-            else {
-                std::wcout << L"  [!] Conversion Failed: " << xlsxPath.filename() << std::endl;
-                // 실패 시 Dummy Entry 채움
-                FileEntry dummy = { 0 };
-                std::string sName = Util::WideToMultiByteStr(mesName, 932);
-                strncpy(dummy.Name, sName.c_str(), 15);
-                dummy.DataOffset = SetFilePointer(hArchive, 0, NULL, FILE_CURRENT);
-                table.push_back(dummy);
+                finalTable.push_back(res.entry);
                 successCount++;
             }
         }
 
-        // 테이블 쓰기
+        // 헤더 및 테이블 업데이트
+        uint32_t finalCount = (uint32_t)finalTable.size();
+        SetFilePointer(hArchive, 0, NULL, FILE_BEGIN);
+        WriteFile(hArchive, &finalCount, 4, &dwWritten, NULL);
+
         SetFilePointer(hArchive, tableStart, NULL, FILE_BEGIN);
-        WriteFile(hArchive, table.data(), sizeof(FileEntry) * totalEntryCount, &dwWritten, NULL);
+        WriteFile(hArchive, finalTable.data(), sizeof(FileEntry) * finalCount, &dwWritten, NULL);
 
         CloseHandle(hArchive);
-        std::wcout << L"Created KoS.pak with " << successCount << L" files." << std::endl;
+        std::wcout << L"Created KoS.pak with " << finalCount << L" files." << std::endl;
     }
 }
