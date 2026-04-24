@@ -32,7 +32,7 @@ IDR_PAK_UNIVFEST_RES    DAT     "res\\univfest_res.pak"
 
 IDD_MAIN_DIALOG DIALOGEX 0, 0, 190, 105
 STYLE DS_SETFONT | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION L"코믹 파티 한국어화 툴"
+CAPTION L"코믹 파티 한국어화 툴 v2"
 FONT 9, "맑은 고딕"
 BEGIN
 GROUPBOX        L"스크립트", -1, 7, 7, 176, 38

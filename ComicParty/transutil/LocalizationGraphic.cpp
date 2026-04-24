@@ -12,7 +12,7 @@
 #include <future>
 
 namespace fs = std::filesystem;
-
+WM_MOUSEWHEEL
 // Ensure 1-byte packing for binary file structures
 #pragma pack(push, 1)
 
@@ -102,8 +102,10 @@ namespace Localization {
     { L"cmkmap.pak",
         {
             "bstr00.grp", "bstr01.grp", "bstr02.grp", "bstr03.grp", "bstr04.grp", "bstr05.grp", "bstr06.grp", "bstr07.grp",
-            "bstr08.grp", "bstr09.grp", "bstr10.grp", "string00.grp", "string01.grp", "string02.grp", "string03.grp", "string04.grp",
-            "string05.grp", "string06.grp", "string07.grp", "string08.grp", "string09.grp", "string10.grp"
+            "bstr08.grp", "bstr09.grp", "bstr10.grp", "place00.grp", "place01.grp", "place02.grp", "place03.grp", "place04.grp",
+            "place05.grp", "place06.grp", "place07.grp", "place08.grp", "place09.grp", "place10.grp", "place11.grp", "string00.grp",
+            "string01.grp", "string02.grp", "string03.grp", "string04.grp", "string05.grp", "string06.grp", "string07.grp", "string08.grp",
+            "string09.grp", "string10.grp"
         }
     },
     { L"comike.pak", { "desk2.grp", "desk3.grp", "nbryu0.grp", "nbryu1.grp" } },

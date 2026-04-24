@@ -1,3 +1,4 @@
+#include <filesystem>
 #include <iostream>
 #include <conio.h>
 #include "Util.h"
@@ -10,7 +11,19 @@ void PrintTitle() {
     std::cout << "========================================" << std::endl;
 }
 
-int main() {
+int wmain(int argc, wchar_t** argv) {
+    if (argc >= 2) {
+        for (int i = 1; i < argc; ++i) {
+            std::filesystem::path p = argv[i];
+            if (p.extension().wstring() == L".xlsx") {
+                Script::ApplyTransTo(argv[i]);
+            }
+            else if (p.extension().wstring() == L".mes") {
+                Script::ParseMes(argv[i], true);
+            }
+        }
+        return 0;
+    }
     while (true) {
         PrintTitle();
         std::cout << "0. MES -> TXT (Export)" << std::endl;
